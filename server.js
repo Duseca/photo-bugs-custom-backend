@@ -7,6 +7,8 @@ import connectDB from './config/connectDB.js';
 import cors from 'cors';
 // import cookieParser from 'cookie-parser';
 
+import Routes from './routes';
+
 const app = express();
 
 connectDB();
@@ -18,7 +20,7 @@ app.use(cors());
 app.use(morgan('dev'));
 
 // Routes
-// app.use('', Routes);
+app.use('/api', Routes);
 
 app.get('/', async (req, res) => {
   try {
