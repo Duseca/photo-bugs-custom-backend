@@ -11,6 +11,9 @@ const UserSchema = new Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     phone: { type: String, required: true },
+    device_token: { type: String, default: '' },
+    stripe_account_id: { type: String },
+    phone: { type: String, required: true },
     role: { type: String },
     gender: { type: String },
     dob: { type: Date },
@@ -44,6 +47,7 @@ const UserSchema = new Schema(
       },
     ],
     isVerified: { type: Boolean, default: false },
+    isBlocked: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -10,6 +10,7 @@ import {
   addRecipients,
   acceptInvite,
   searchEvents,
+  declineInvite,
 } from '../controllers/EventController';
 import verifyToken from '../middleware/auth';
 
@@ -25,5 +26,6 @@ router.put('/:id', verifyToken, updateEvent);
 router.delete('/:id', verifyToken, deleteEvent);
 router.post('/:id/recipients', verifyToken, addRecipients);
 router.put('/:id/accept', verifyToken, acceptInvite);
+router.put('/:id/decline', verifyToken, declineInvite);
 
 export default router;

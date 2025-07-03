@@ -5,8 +5,12 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "start": "nodemon server",
-    "server": "node server",
+    "start": "node server.js",
+    "start:socket": "node socket.js",
+    "dev": "concurrently \"npm:start\" \"npm:start:socket\"",
+    "dev:server": "nodemon server.js",
+    "dev:socket": "nodemon socket.js",
+    "dev:all": "concurrently \"npm:dev:server\" \"npm:dev:socket\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -17,9 +21,13 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.0",
     "morgan": "^1.10.0",
-    "nodemailer": "^7.0.3"
+    "multer": "^2.0.1",
+    "nodemailer": "^7.0.3",
+    "socket.io": "^4.8.1",
+    "stripe": "^18.3.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.0",
     "nodemon": "^3.1.10"
   }
 }

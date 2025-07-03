@@ -10,6 +10,8 @@ import {
   updatePassword,
   purchaseStorage,
   getStorageInfo,
+  startStripeOnboarding,
+  checkStripeAccountStatus,
 } from '../controllers/UserController';
 import verifyToken from '../middleware/auth';
 
@@ -28,5 +30,7 @@ router.get('/storage', verifyToken, getStorageInfo);
 router.post('/purchase-storage', verifyToken, purchaseStorage);
 router.post('/favorites/:userId', verifyToken, addFavourite);
 router.delete('/favorites/:userId', verifyToken, removeFavourite);
+router.post('/stripe/onboard', verifyToken, startStripeOnboarding);
+router.get('/stripe/account-status', verifyToken, checkStripeAccountStatus);
 
 export default router;

@@ -3,13 +3,14 @@ import Token from '../models/Token';
 import jwt from 'jsonwebtoken';
 import sendEmail from '../utils/sendEmail';
 import { generateRandomCode } from '../utils/helpers';
+import stripe from 'stripe';
 
 // @desc    Register a new user
 // @route   POST /api/users/register
 // @access  Public
 export const registerUser = async (req, res) => {
   try {
-    const { name, user_name, email, password, phone } = req.body;
+    const { name, user_name, email, password, phone, device_token } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -27,6 +28,7 @@ export const registerUser = async (req, res) => {
       email,
       password,
       phone,
+      device_token,
       profile_picture: req.body.profile_picture,
       storage: {
         max: 250 * 1024 * 1024,
@@ -180,19 +182,35 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    const user = await User.findByIdAndUpdate(userId, updates, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!user) {
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
       });
     }
 
-    const userResponse = user.toObject();
+    const nestedFields = ['address', 'settings', 'location'];
+    nestedFields.forEach((field) => {
+      if (updates[field]) {
+        updates[field] = {
+          ...currentUser[field].toObject(), // Keep existing values
+          ...updates[field], // Apply updates
+        };
+      }
+    });
+
+    // Update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updates },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    const userResponse = updatedUser.toObject();
     delete userResponse.password;
 
     res.status(200).json({
@@ -474,6 +492,91 @@ export const getStorageInfo = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+export const startStripeOnboarding = async (req, res) => {
+  try {
+    const user = await User.findById(req.user_id);
+
+    if (user.stripe_account_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already has a Stripe account',
+      });
+    }
+
+    const account = await stripe.accounts.create({
+      type: 'standard',
+      email: user.email,
+      business_type: 'individual',
+      individual: {
+        email: user.email,
+        first_name: user.name.split(' ')[0],
+        last_name: user.name.split(' ')[1] || '',
+        phone: user.phone,
+      },
+      metadata: {
+        userId: user._id.toString(),
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+    });
+
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.BASE_URL}/stripe/onboard/retry`,
+      return_url: `${process.env.BASE_URL}/stripe/onboard/success`,
+      type: 'account_onboarding',
+      collect: 'eventually_due',
+    });
+
+    user.stripe_account_id = account.id;
+    await user.save();
+
+    res.json({
+      success: true,
+      url: accountLink.url,
+    });
+  } catch (error) {
+    console.error('Stripe onboarding error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to start Stripe onboarding',
+      error: error.message,
+    });
+  }
+};
+
+export const checkStripeAccountStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.user_id);
+
+    if (!user.stripe_account_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'No Stripe account found for user',
+      });
+    }
+
+    const account = await stripe.accounts.retrieve(user.stripe_account_id);
+
+    res.json({
+      success: true,
+      accountStatus: account,
+      onboardingComplete: account.details_submitted,
+      payoutsEnabled: account.payouts_enabled,
+      chargesEnabled: account.charges_enabled,
+    });
+  } catch (error) {
+    console.error('Stripe account status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check Stripe account status',
+      error: error.message,
     });
   }
 };

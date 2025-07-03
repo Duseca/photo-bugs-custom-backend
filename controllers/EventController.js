@@ -384,6 +384,62 @@ export const acceptInvite = async (req, res) => {
   }
 };
 
+// @desc    Decline event invitation
+// @route   PUT /api/events/:id/decline
+// @access  Private
+export const declineInvite = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+
+    const user = await User.findById(req.user_id);
+
+    // Check if user was invited by email or ID
+    const initialRecipientsCount = event.recipients.length;
+
+    // Filter out the current user by email (if invited that way)
+    event.recipients = event.recipients.filter((r) => r.email !== user.email);
+
+    // Filter out the current user by ID (if invited that way)
+    event.recipients = event.recipients.filter(
+      (r) => !(r.id && r.id.toString() === req.user_id)
+    );
+
+    // If no recipient was removed, it means the user was not invited
+    if (event.recipients.length === initialRecipientsCount) {
+      return res.status(403).json({
+        success: false,
+        message:
+          'You were not invited to this event, or have already declined/accepted.',
+      });
+    }
+
+    await event.save();
+
+    const populatedEvent = await Event.findById(event._id)
+      .populate('created_by', 'name user_name profile_picture')
+      .populate('photographer', 'name user_name profile_picture')
+      .populate('recipients.id', 'name user_name email profile_picture');
+
+    res.status(200).json({
+      success: true,
+      data: populatedEvent,
+      message: 'Invitation declined successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // @desc    Search events with filters
 // @route   GET /api/events/search
 // @access  Public

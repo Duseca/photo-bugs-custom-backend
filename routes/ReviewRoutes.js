@@ -4,9 +4,10 @@ import {
   updateReview,
   deleteReview,
   getAverageRating,
-} from '../controllers/ReviewControllerController';
+  getAllReviews,
+  getReviewById,
+} from '../controllers/ReviewController';
 import verifyToken from '../middleware/auth';
-import { getAllReviews, getReviewById } from '../controllers/ReviewController';
 
 const router = express.Router();
 

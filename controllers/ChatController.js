@@ -2,7 +2,6 @@ import Chat from '../models/Chat';
 import User from '../models/User';
 import Photo from '../models/Photo';
 import Bundle from '../models/Bundle';
-import mongoose from 'mongoose';
 
 // Helper to populate message references
 const populateMessage = (message) => {

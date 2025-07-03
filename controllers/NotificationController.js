@@ -124,6 +124,42 @@ export const sendNotification = async (req, res) => {
   }
 };
 
+// @desc    Mark a notification as seen
+// @route   PUT /api/notifications/:id/seen
+// @access  Private
+export const markAsSeen = async (req, res) => {
+  try {
+    const notification = await Notification.findByIdAndUpdate(
+      { _id: req.params.id, user_id: req.user_id },
+      { is_seen: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message:
+          'Notification not found or not authorized to update this notification',
+      });
+    }
+
+    const populatedNotification = await Notification.findById(
+      notification._id
+    ).populate('user_id', 'name user_name profile_picture');
+
+    res.status(200).json({
+      success: true,
+      data: populatedNotification,
+      message: 'Notification marked as seen successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // @desc    Delete notification
 // @route   DELETE /api/notifications/:id
 // @access  Private

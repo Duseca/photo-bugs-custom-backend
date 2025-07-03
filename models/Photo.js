@@ -8,6 +8,7 @@ const PhotoSchema = new Schema(
     link: { type: String, required: true },
     metadata: {},
     price: { type: Number, required: true },
+    view_userIds: { type: [Schema.Types.ObjectId], ref: 'User' },
     invitees: { type: [String] },
   },
   { timestamps: true }
@@ -17,12 +18,13 @@ const PhotoBundleSchema = new Schema(
   {
     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
-    photos: [
-      {
-        id: { type: Schema.Types.ObjectId, ref: 'Photo', required: true },
-      },
-    ],
+    photos: {
+      type: [Schema.Types.ObjectId],
+      ref: 'Photo',
+      required: true,
+    },
     price: { type: Number, required: true },
+    view_userIds: { type: [Schema.Types.ObjectId], ref: 'User' },
     invitees: { type: [String] },
   },
   { timestamps: true }
@@ -42,5 +44,6 @@ const FolderSchema = new Schema(
 
 const Photo = mongoose.model('Photo', PhotoSchema);
 const Bundle = mongoose.model('PhotoBundle', PhotoBundleSchema);
+const Folder = mongoose.model('Folder', FolderSchema);
 
-export { Photo, Bundle };
+export { Photo, Bundle, Folder };
