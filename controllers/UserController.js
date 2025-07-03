@@ -3,7 +3,7 @@ import Token from '../models/Token';
 import jwt from 'jsonwebtoken';
 import sendEmail from '../utils/sendEmail';
 import { generateRandomCode } from '../utils/helpers';
-import stripe from 'stripe';
+import stripe from '../config/stripeConnect';
 
 // @desc    Register a new user
 // @route   POST /api/users/register
