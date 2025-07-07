@@ -7,7 +7,7 @@ import connectDB from './config/connectDB.js';
 import cors from 'cors';
 // import cookieParser from 'cookie-parser';
 
-import Routes from './routes';
+import Routes from './routes/index.js';
 
 const app = express();
 

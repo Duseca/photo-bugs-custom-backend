@@ -6,8 +6,8 @@ import {
   updateMessage,
   deleteMessage,
   updateLastSeen,
-} from '../controllers/ChatController';
-import verifyToken from '../middleware/auth';
+} from '../controllers/ChatController.js';
+import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
 

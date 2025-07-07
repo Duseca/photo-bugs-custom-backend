@@ -5,7 +5,7 @@ const Schema = mongoose.Schema;
 const NotificationSchema = new Schema(
   {
     user_id: { type: Schema.Types.ObjectId, ref: 'User' },
-    description: { type: Text, required: true },
+    description: { type: String, required: true },
     is_seen: { type: Boolean, default: false, required: true },
   },
   { timestamps: true }

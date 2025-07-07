@@ -7,7 +7,7 @@ const ReviewSchema = new Schema(
     review_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     review_for: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     ratings: { type: Number, required: true },
-    description: { type: Text },
+    description: { type: String },
   },
   { timestamps: true }
 );

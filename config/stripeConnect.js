@@ -1,5 +1,5 @@
-import Stripe from 'stripe';
+// import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET);
+// const stripe = new Stripe(process.env.STRIPE_SECRET);
 
-export default stripe;
+// export default stripe;

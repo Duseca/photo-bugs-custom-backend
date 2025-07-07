@@ -1,6 +1,6 @@
-import Event from '../models/Event';
-import User from '../models/User';
-import sendEmail from '../utils/sendEmail';
+import Event from '../models/Event.js';
+import User from '../models/User.js';
+import sendEmail from '../utils/sendEmail.js';
 
 // Helper function to validate time
 const validateTime = (time) => {

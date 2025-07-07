@@ -23,7 +23,6 @@ const UserSchema = new Schema(
       address: { type: String },
     },
     location: {
-      type: Point,
       coordinates: [Number], // longitue, latitude not lat,lng
     },
     bio: { type: String },

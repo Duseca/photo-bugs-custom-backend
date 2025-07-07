@@ -9,7 +9,6 @@ const EventSchema = new Schema(
     name: { type: String, required: true },
     image: { type: String, required: true },
     location: {
-      type: Point,
       coordinates: [Number], // longitue, latitude not lat,lng
     },
     date: { type: Date, required: true },

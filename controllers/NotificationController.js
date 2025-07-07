@@ -1,5 +1,5 @@
-import Notification from '../models/Notification';
-import User from '../models/User';
+import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 
 // @desc    Get all notifications

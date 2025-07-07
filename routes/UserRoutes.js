@@ -10,13 +10,12 @@ import {
   updatePassword,
   purchaseStorage,
   getStorageInfo,
-  startStripeOnboarding,
-  checkStripeAccountStatus,
-} from '../controllers/UserController';
-import verifyToken from '../middleware/auth';
+  // startStripeOnboarding,
+  // checkStripeAccountStatus,
+} from '../controllers/UserController.js';
+import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
-
 // Public routes
 router.post('/register', registerUser);
 router.post('/login', loginUser);
@@ -30,7 +29,7 @@ router.get('/storage', verifyToken, getStorageInfo);
 router.post('/purchase-storage', verifyToken, purchaseStorage);
 router.post('/favorites/:userId', verifyToken, addFavourite);
 router.delete('/favorites/:userId', verifyToken, removeFavourite);
-router.post('/stripe/onboard', verifyToken, startStripeOnboarding);
-router.get('/stripe/account-status', verifyToken, checkStripeAccountStatus);
+// router.post('/stripe/onboard', verifyToken, startStripeOnboarding);
+// router.get('/stripe/account-status', verifyToken, checkStripeAccountStatus);
 
 export default router;

@@ -6,8 +6,8 @@ import {
   getAverageRating,
   getAllReviews,
   getReviewById,
-} from '../controllers/ReviewController';
-import verifyToken from '../middleware/auth';
+} from '../controllers/ReviewController.js';
+import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
 

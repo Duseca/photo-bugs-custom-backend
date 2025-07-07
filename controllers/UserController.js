@@ -1,9 +1,9 @@
-import User from '../models/User';
-import Token from '../models/Token';
+import User from '../models/User.js';
+import Token from '../models/Token.js';
 import jwt from 'jsonwebtoken';
-import sendEmail from '../utils/sendEmail';
-import { generateRandomCode } from '../utils/helpers';
-import stripe from '../config/stripeConnect';
+import sendEmail from '../utils/sendEmail.js';
+import { generateRandomCode } from '../utils/helpers.js';
+// import stripe from '../config/stripeConnect.js';
 
 // @desc    Register a new user
 // @route   POST /api/users/register
@@ -496,90 +496,90 @@ export const getStorageInfo = async (req, res) => {
   }
 };
 
-export const startStripeOnboarding = async (req, res) => {
-  try {
-    const user = await User.findById(req.user_id);
+// export const startStripeOnboarding = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user_id);
 
-    if (user.stripe_account_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already has a Stripe account',
-      });
-    }
+//     if (user.stripe_account_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'User already has a Stripe account',
+//       });
+//     }
 
-    const account = await stripe.accounts.create({
-      type: 'standard',
-      email: user.email,
-      business_type: 'individual',
-      individual: {
-        email: user.email,
-        first_name: user.name.split(' ')[0],
-        last_name: user.name.split(' ')[1] || '',
-        phone: user.phone,
-      },
-      metadata: {
-        userId: user._id.toString(),
-      },
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-    });
+//     const account = await stripe.accounts.create({
+//       type: 'standard',
+//       email: user.email,
+//       business_type: 'individual',
+//       individual: {
+//         email: user.email,
+//         first_name: user.name.split(' ')[0],
+//         last_name: user.name.split(' ')[1] || '',
+//         phone: user.phone,
+//       },
+//       metadata: {
+//         userId: user._id.toString(),
+//       },
+//       capabilities: {
+//         card_payments: { requested: true },
+//         transfers: { requested: true },
+//       },
+//     });
 
-    const accountLink = await stripe.accountLinks.create({
-      account: account.id,
-      refresh_url: `${process.env.BASE_URL}/stripe/onboard/retry`,
-      return_url: `${process.env.BASE_URL}/stripe/onboard/success`,
-      type: 'account_onboarding',
-      collect: 'eventually_due',
-    });
+//     const accountLink = await stripe.accountLinks.create({
+//       account: account.id,
+//       refresh_url: `${process.env.BASE_URL}/stripe/onboard/retry`,
+//       return_url: `${process.env.BASE_URL}/stripe/onboard/success`,
+//       type: 'account_onboarding',
+//       collect: 'eventually_due',
+//     });
 
-    user.stripe_account_id = account.id;
-    await user.save();
+//     user.stripe_account_id = account.id;
+//     await user.save();
 
-    res.json({
-      success: true,
-      url: accountLink.url,
-    });
-  } catch (error) {
-    console.error('Stripe onboarding error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to start Stripe onboarding',
-      error: error.message,
-    });
-  }
-};
+//     res.json({
+//       success: true,
+//       url: accountLink.url,
+//     });
+//   } catch (error) {
+//     console.error('Stripe onboarding error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to start Stripe onboarding',
+//       error: error.message,
+//     });
+//   }
+// };
 
-export const checkStripeAccountStatus = async (req, res) => {
-  try {
-    const user = await User.findById(req.user_id);
+// export const checkStripeAccountStatus = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user_id);
 
-    if (!user.stripe_account_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'No Stripe account found for user',
-      });
-    }
+//     if (!user.stripe_account_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'No Stripe account found for user',
+//       });
+//     }
 
-    const account = await stripe.accounts.retrieve(user.stripe_account_id);
+//     const account = await stripe.accounts.retrieve(user.stripe_account_id);
 
-    res.json({
-      success: true,
-      accountStatus: account,
-      onboardingComplete: account.details_submitted,
-      payoutsEnabled: account.payouts_enabled,
-      chargesEnabled: account.charges_enabled,
-    });
-  } catch (error) {
-    console.error('Stripe account status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to check Stripe account status',
-      error: error.message,
-    });
-  }
-};
+//     res.json({
+//       success: true,
+//       accountStatus: account,
+//       onboardingComplete: account.details_submitted,
+//       payoutsEnabled: account.payouts_enabled,
+//       chargesEnabled: account.charges_enabled,
+//     });
+//   } catch (error) {
+//     console.error('Stripe account status error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to check Stripe account status',
+//       error: error.message,
+//     });
+//   }
+// };
 
 const formatBytes = (bytes) => {
   if (bytes === 0) return '0 Bytes';

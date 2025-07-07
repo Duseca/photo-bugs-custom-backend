@@ -11,8 +11,8 @@ import {
   acceptInvite,
   searchEvents,
   declineInvite,
-} from '../controllers/EventController';
-import verifyToken from '../middleware/auth';
+} from '../controllers/EventController.js';
+import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
 

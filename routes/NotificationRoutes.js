@@ -6,8 +6,8 @@ import {
   sendNotification,
   deleteNotification,
   markAsSeen,
-} from '../controllers/NotificationController';
-import verifyToken from '../middleware/auth';
+} from '../controllers/NotificationController.js';
+import verifyToken from '../middleware/auth.js';
 // import { isAdmin } from '../middleware/roles';
 
 const router = express.Router();

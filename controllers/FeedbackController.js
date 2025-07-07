@@ -1,5 +1,5 @@
-import Feedback from '../models/Feedback';
-import User from '../models/User';
+import Feedback from '../models/Feedback.js';
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 
 // @desc    Get all feedback
