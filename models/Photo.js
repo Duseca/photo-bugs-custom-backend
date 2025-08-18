@@ -6,44 +6,48 @@ const PhotoSchema = new Schema(
   {
     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     link: { type: String, required: true },
+    watermarked_link: { type: String, required: true },
     metadata: {},
     price: { type: Number, required: true },
-    view_userIds: { type: [Schema.Types.ObjectId], ref: 'User' },
-    invitees: { type: [String] },
+    ownership: { type: [Schema.Types.ObjectId], ref: 'User' },
   },
   { timestamps: true }
 );
 
-const PhotoBundleSchema = new Schema(
-  {
-    created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    name: { type: String, required: true },
-    photos: {
-      type: [Schema.Types.ObjectId],
-      ref: 'Photo',
-      required: true,
-    },
-    price: { type: Number, required: true },
-    view_userIds: { type: [Schema.Types.ObjectId], ref: 'User' },
-    invitees: { type: [String] },
-  },
-  { timestamps: true }
-);
+// const PhotoBundleSchema = new Schema(
+//   {
+//     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+//     folder_id: { type: Schema.Types.ObjectId, ref: 'Folder', required: true },
+//     name: { type: String, required: true },
+//     photos: {
+//       type: [Schema.Types.ObjectId],
+//       ref: 'Photo',
+//       required: true,
+//     },
+//     price: { type: Number, required: true },
+//     ownership: { type: [Schema.Types.ObjectId], ref: 'User' },
+//   },
+//   { timestamps: true }
+// );
 
-const FolderSchema = new Schema(
-  {
-    created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    name: { type: String, required: true },
-    images: [{ type: Schema.Types.ObjectId, ref: 'Photo' }],
-    bundles: [{ type: Schema.Types.ObjectId, ref: 'PhotoBundle' }],
-    price: { type: Number, required: true },
-    // invitees: { type: [String] },
-  },
-  { timestamps: true }
-);
+// const FolderSchema = new Schema(
+//   {
+//     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+//     event_id: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
+//     name: { type: String, required: true },
+//     images: [{ type: Schema.Types.ObjectId, ref: 'Photo' }],
+//     bundles: [{ type: Schema.Types.ObjectId, ref: 'PhotoBundle' }],
+//     price: { type: Number, required: true },
+//     invitees: [
+//       {
+//         email: { type: String },
+//         id: { type: Schema.Types.ObjectId, ref: 'User' },
+//       },
+//     ],
+//   },
+//   { timestamps: true }
+// );
 
-const Photo = mongoose.model('Photo', PhotoSchema);
-const Bundle = mongoose.model('PhotoBundle', PhotoBundleSchema);
-const Folder = mongoose.model('Folder', FolderSchema);
-
-export { Photo, Bundle, Folder };
+export default mongoose.model('Photo', PhotoSchema);
+// const Bundle = mongoose.model('PhotoBundle', PhotoBundleSchema);
+// const Folder = mongoose.model('Folder', FolderSchema);

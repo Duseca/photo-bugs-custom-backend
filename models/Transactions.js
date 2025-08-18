@@ -4,15 +4,20 @@ const Schema = mongoose.Schema;
 
 const TransactionSchema = new Schema(
   {
-    transaction_by: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+    seller: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    buyer: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    type: { type: String, enum: ['Photo', 'Bundle'], required: true },
+    photo: { type: Schema.Types.ObjectId, ref: 'Photo' },
+    bundle: { type: Schema.Types.ObjectId, ref: 'PhotoBundle' },
+    amount: { type: Number, required: true }, // Total amount paid
+    platform_fee: { type: Number, required: true }, // 15% of amount
+    photographer_earnings: { type: Number, required: true }, // 85% of amount
+    stripe_payment_intent_id: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ['pending', 'succeeded', 'failed'],
+      default: 'pending',
     },
-    type: { type: String, enum: ['Image', 'Bundle'], required: true },
-    resource_id: { type: Schema.Types.ObjectId, required: true },
-    total: { type: Number, required: true },
-    description: { type: Text },
   },
   { timestamps: true }
 );
