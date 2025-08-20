@@ -5,8 +5,21 @@ import Transactions from '../models/Transactions.js';
 // @access  Private
 export const getAllTransactions = async (req, res) => {
   try {
-    const transactions = await Transactions.find();
-    res.json(transactions);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Transactions.countDocuments();
+
+    const transactions = await Transactions.find().skip(skip).limit(limit);
+
+    res.json({
+      count: transactions.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: transactions,
+    });
   } catch (error) {
     res
       .status(500)
@@ -33,8 +46,23 @@ export const getTransaction = async (req, res) => {
 // @access  Private
 export const getUserTransactionsSold = async (req, res) => {
   try {
-    const transactions = await Transactions.find({ seller: req.params.id });
-    res.json(transactions);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Transactions.countDocuments({ seller: req.params.id });
+
+    const transactions = await Transactions.find({ seller: req.params.id })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      count: transactions.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: transactions,
+    });
   } catch (error) {
     res
       .status(500)
@@ -47,8 +75,23 @@ export const getUserTransactionsSold = async (req, res) => {
 // @access  Private
 export const getUserTransactionsBought = async (req, res) => {
   try {
-    const transactions = await Transactions.find({ buyer: req.params.id });
-    res.json(transactions);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Transactions.countDocuments({ buyer: req.params.id });
+
+    const transactions = await Transactions.find({ buyer: req.params.id })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      count: transactions.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: transactions,
+    });
   } catch (error) {
     res
       .status(500)

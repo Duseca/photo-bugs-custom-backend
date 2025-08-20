@@ -10,6 +10,7 @@ import {
   updatePassword,
   purchaseStorage,
   getStorageInfo,
+  getAllUsers,
   // startStripeOnboarding,
   // checkStripeAccountStatus,
 } from '../controllers/UserController.js';
@@ -23,6 +24,7 @@ router.post('/verify-email', verifyEmail);
 
 // Protected routes (require authentication)
 router.get('/me', verifyToken, getCurrentUser);
+router.get('/', verifyToken, getAllUsers);
 router.put('/update', verifyToken, updateUser);
 router.put('/update-password', verifyToken, updatePassword);
 router.get('/storage', verifyToken, getStorageInfo);

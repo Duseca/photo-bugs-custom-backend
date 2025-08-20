@@ -7,14 +7,23 @@ import mongoose from 'mongoose';
 // @access  Private (Admin only)
 export const getAllNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find().populate(
-      'user_id',
-      'name user_name email profile_picture'
-    );
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Notification.countDocuments();
+
+    const notifications = await Notification.find()
+      .populate('user_id', 'name user_name email profile_picture')
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
       count: notifications.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: notifications,
     });
   } catch (error) {
@@ -67,13 +76,24 @@ export const getNotificationById = async (req, res) => {
 // @access  Private
 export const getUserNotifications = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Notification.countDocuments({ user_id: req.user_id });
+
     const notifications = await Notification.find({ user_id: req.user_id })
       .populate('user_id', 'name user_name email profile_picture')
-      .sort({ createdAt: -1 }); // Sort by most recent first
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
       count: notifications.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: notifications,
     });
   } catch (error) {
@@ -83,7 +103,6 @@ export const getUserNotifications = async (req, res) => {
     });
   }
 };
-
 // @desc    Create/send notification
 // @route   POST /api/notifications
 // @access  Private (Admin or system)

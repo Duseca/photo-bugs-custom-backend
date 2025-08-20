@@ -40,16 +40,36 @@ export const createFolder = async (req, res) => {
 // @access  Private
 export const getFoldersByEvent = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Folder.countDocuments({
+      event_id: req.params.eventId,
+      $or: [
+        { created_by: req.user_id },
+        { 'recipients.id': req.user_id, 'recipients.status': 'accepted' },
+      ],
+    });
+
     const folders = await Folder.find({
       event_id: req.params.eventId,
       $or: [
         { created_by: req.user_id },
         { 'recipients.id': req.user_id, 'recipients.status': 'accepted' },
       ],
-    }).populate('created_by', 'name email profile_picture');
-    // .populate('cover_photo', 'link watermarked_link');
+    })
+      .populate('created_by', 'name email profile_picture')
+      .skip(skip)
+      .limit(limit);
 
-    res.json(folders);
+    res.json({
+      count: folders.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: folders,
+    });
   } catch (error) {
     res
       .status(500)

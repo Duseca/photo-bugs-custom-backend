@@ -1,6 +1,6 @@
 import PhotoBundle from '../models/PhotoBundle.js';
 import Photo from '../models/Photo.js';
-import Transaction from '../models/Transaction.js';
+import Transaction from '../models/Transactions.js';
 
 // @desc    Create a new photo bundle
 // @route   POST /api/photo-bundles
@@ -51,19 +51,36 @@ export const createPhotoBundle = async (req, res) => {
 // @access  Private
 export const getBundlesByFolder = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await PhotoBundle.countDocuments({
+      folder_id: req.params.folderId,
+      $or: [{ created_by: req.user_id }, { ownership: req.user_id }],
+    });
+
     const bundles = await PhotoBundle.find({
       folder_id: req.params.folderId,
       $or: [{ created_by: req.user_id }, { ownership: req.user_id }],
-    }).populate('photos bonus_photos cover_photo');
+    })
+      .populate('photos bonus_photos cover_photo')
+      .skip(skip)
+      .limit(limit);
 
-    res.json(bundles);
+    res.json({
+      count: bundles.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: bundles,
+    });
   } catch (error) {
     res
       .status(500)
       .json({ message: 'Error fetching bundles', error: error.message });
   }
 };
-
 // @desc    Get bundle details
 // @route   GET /api/photo-bundles/:id
 // @access  Private

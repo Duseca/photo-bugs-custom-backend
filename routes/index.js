@@ -2,7 +2,7 @@ import express from 'express';
 
 import UserRoutes from './UserRoutes.js';
 import ReviewRoutes from './ReviewRoutes.js';
-import PhotoRoutes from './PhotoRoutes';
+import PhotoRoutes from './PhotoRoutes.js';
 import PhotoBundleRoutes from './PhotoBundleRoutes.js';
 import NotificationRoutes from './NotificationRoutes.js';
 import FeedbackRoutes from './FeedbackRoutes.js';

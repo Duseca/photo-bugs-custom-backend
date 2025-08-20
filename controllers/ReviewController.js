@@ -6,10 +6,20 @@ import mongoose from 'mongoose';
 // @access  Private
 export const getAllReviews = async (req, res) => {
   try {
-    const reviews = await Review.find();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Review.countDocuments();
+
+    const reviews = await Review.find().skip(skip).limit(limit);
 
     res.status(200).json({
       success: true,
+      count: reviews.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: reviews,
     });
   } catch (error) {

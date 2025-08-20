@@ -1,6 +1,6 @@
 import Photo from '../models/Photo.js';
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
+import Transaction from '../models/Transactions.js';
 import { uploadImageWithWatermark } from '../utils/handleImages.js';
 import { memoryUpload } from '../config/multer.js';
 // import stripe from 'stripe';
@@ -10,15 +10,29 @@ import { memoryUpload } from '../config/multer.js';
 // @access  Private
 export const getCreatorImages = async (req, res) => {
   try {
-    const photos = await Photo.find({ created_by: req.user_id });
-    res.json(photos);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Photo.countDocuments({ created_by: req.user_id });
+
+    const photos = await Photo.find({ created_by: req.user_id })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      count: photos.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: photos,
+    });
   } catch (error) {
     res
       .status(500)
       .json({ message: 'Error fetching photos', error: error.message });
   }
 };
-
 // @desc    Upload a new photo
 // @route   POST /api/photos
 // @access  Private

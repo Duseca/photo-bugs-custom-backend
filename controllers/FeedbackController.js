@@ -7,13 +7,24 @@ import mongoose from 'mongoose';
 // @access  Private (Admin only)
 export const getAllFeedback = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Feedback.countDocuments();
+
     const feedback = await Feedback.find()
       .populate('user_id', 'name user_name profile_picture')
-      .sort({ createdAt: -1 }); // Newest first
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
       count: feedback.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: feedback,
     });
   } catch (error) {
@@ -187,13 +198,24 @@ export const deleteFeedback = async (req, res) => {
 // @access  Private
 export const getUserFeedbackSuggestions = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Feedback.countDocuments({ user_id: req.user_id });
+
     const suggestions = await Feedback.find({ user_id: req.user_id })
       .sort({ createdAt: -1 })
-      .select('description createdAt');
+      .select('description createdAt')
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       success: true,
       count: suggestions.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: suggestions,
     });
   } catch (error) {

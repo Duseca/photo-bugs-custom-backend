@@ -167,6 +167,39 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+// @desc    Get all users
+// @route   GET /api/users/
+// @access  Private
+export const getAllUsers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await User.countDocuments();
+
+    const users = await User.find()
+      .select('-password')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      data: users,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // @desc    Update user profile
 // @route   PUT /api/users/update
 // @access  Private

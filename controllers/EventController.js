@@ -12,13 +12,25 @@ const validateTime = (time) => {
 // @access  Public
 export const getAllEvents = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Event.countDocuments();
+
     const events = await Event.find()
       .populate('created_by', 'name user_name profile_picture')
-      .populate('photographer', 'name user_name profile_picture');
+      .populate('photographer', 'name user_name profile_picture')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       count: events.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: events,
     });
   } catch (error) {
@@ -62,13 +74,27 @@ export const getEventById = async (req, res) => {
 // @access  Private
 export const getCurrentUserEvents = async (req, res) => {
   try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const total = await Event.countDocuments({ created_by: req.user_id });
+
     const events = await Event.find({ created_by: req.user_id })
       .populate('created_by', 'name user_name profile_picture')
-      .populate('photographer', 'name user_name profile_picture');
+      .populate('photographer', 'name user_name profile_picture')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       count: events.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: events,
     });
   } catch (error) {
@@ -84,13 +110,27 @@ export const getCurrentUserEvents = async (req, res) => {
 // @access  Private
 export const getPhotographerEvents = async (req, res) => {
   try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const total = await Event.countDocuments({ photographer: req.user_id });
+
     const events = await Event.find({ photographer: req.user_id })
       .populate('created_by', 'name user_name profile_picture')
-      .populate('photographer', 'name user_name profile_picture');
+      .populate('photographer', 'name user_name profile_picture')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // Optional: sort by creation date
 
     res.status(200).json({
       success: true,
       count: events.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: events,
     });
   } catch (error) {
