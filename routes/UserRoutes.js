@@ -11,6 +11,7 @@ import {
   purchaseStorage,
   getStorageInfo,
   getAllUsers,
+  sendVerificationEmail,
   // startStripeOnboarding,
   // checkStripeAccountStatus,
 } from '../controllers/UserController.js';
@@ -21,7 +22,7 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify-email', verifyEmail);
-
+router.post('/send-email', sendVerificationEmail);
 // Protected routes (require authentication)
 router.get('/me', verifyToken, getCurrentUser);
 router.get('/', verifyToken, getAllUsers);

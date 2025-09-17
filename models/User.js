@@ -14,8 +14,8 @@ const UserSchema = new Schema(
     device_token: { type: String, default: '' },
     stripe_account_id: { type: String },
     phone: { type: String, required: true },
-    role: { type: String },
-    gender: { type: String },
+    role: { type: String  , enum : ["creator", "client"], required:true},
+    gender: { type: String,  enum : ["male", "female", "other"] },
     dob: { type: Date },
     address: {
       country: { type: String },

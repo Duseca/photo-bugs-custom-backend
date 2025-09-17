@@ -1,22 +1,23 @@
 import nodemailer from 'nodemailer';
-
+import dotenv from "dotenv";
+dotenv.config();
+const { SMTP_EMAIL, SMTP_PASSWORD} = process.env;
 export default async function sendEmail(email, subject, text) {
   try {
     const transporter = nodemailer.createTransport({
-      service: process.env.HOST,
-      // service: 'hotmail',
-      port: 587,
+      service: "gmail",
       secure: true,
       auth: {
-        user: process.env.USER,
-        pass: process.env.PASS,
+      user: SMTP_EMAIL,
+      pass: SMTP_PASSWORD,
       },
     });
     await transporter.sendMail({
-      from: process.env.USER,
+      from:'PhotoBugs',
       to: email,
       subject: subject,
       text: text,
+      html: `<p>${text.replace(/\n/g, "<br/>")}</p>`
     });
     console.log('email sent sucessfully');
   } catch (error) {

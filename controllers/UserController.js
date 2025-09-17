@@ -3,14 +3,9 @@ import Token from '../models/Token.js';
 import jwt from 'jsonwebtoken';
 import sendEmail from '../utils/sendEmail.js';
 import { generateRandomCode } from '../utils/helpers.js';
-// import stripe from '../config/stripeConnect.js';
-
-// @desc    Register a new user
-// @route   POST /api/users/register
-// @access  Public
-export const registerUser = async (req, res) => {
+export const sendVerificationEmail = async (req, res) => {
   try {
-    const { name, user_name, email, password, phone, device_token } = req.body;
+    const { email } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -21,36 +16,64 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Create new user
+    const verificationCode = generateRandomCode(6);
+
+    // Store code temporarily
+    await Token.findOneAndUpdate(
+      { email },
+      { code: verificationCode },
+      { upsert: true, new: true }
+    );
+
+    await sendEmail(
+      email,
+      'Verify Your Email',
+      `Your verification code is: ${verificationCode}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification code sent to email',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const registerUser = async (req, res) => {
+  try {
+    const { name, user_name, email, password, phone, device_token , role} = req.body;
+
+    const tokenRecord = await Token.findOne({ email });
+  
+    if (!tokenRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code',
+      });
+    }
+
     const user = await User.create({
       name,
       user_name,
       email,
       password,
       phone,
+      role,
       device_token,
       profile_picture: req.body.profile_picture,
+      isVerified: true, // mark verified
       storage: {
         max: 250 * 1024 * 1024,
         used: 0,
       },
     });
 
-    const verificationCode = generateRandomCode(6);
-    await Token.create({
-      email: user.email,
-      code: verificationCode,
-    });
+    await Token.deleteOne({ email });
 
-    await sendEmail(
-      user.email,
-      'Verify Your Email',
-      `Your verification code is: ${verificationCode}`
-    );
-
-    const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
+    const jwtToken = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
 
     const userResponse = user.toObject();
     delete userResponse.password;
@@ -59,9 +82,9 @@ export const registerUser = async (req, res) => {
       success: true,
       data: {
         user: userResponse,
-        token,
+        token: jwtToken,
       },
-      message: 'User registered successfully. Please verify your email.',
+      message: 'User registered successfully',
     });
   } catch (error) {
     res.status(500).json({
@@ -71,9 +94,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// @desc    Login user
-// @route   POST /api/users/login
-// @access  Public
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -101,9 +121,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
+    const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
 
     const userResponse = user.toObject();
     delete userResponse.password;
@@ -124,9 +142,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// @desc    Get current user profile
-// @route   GET /api/users/me
-// @access  Private
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user_id)
@@ -167,9 +182,6 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-// @desc    Get all users
-// @route   GET /api/users/
-// @access  Private
 export const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -200,9 +212,6 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/users/update
-// @access  Private
 export const updateUser = async (req, res) => {
   try {
     const updates = req.body;
@@ -259,9 +268,6 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// @desc    Update user password
-// @route   PUT /api/users/update-password
-// @access  Private
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -298,9 +304,6 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-// @desc    Add user to favorites
-// @route   POST /api/users/favorites/:userId
-// @access  Private
 export const addFavourite = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -341,9 +344,6 @@ export const addFavourite = async (req, res) => {
   }
 };
 
-// @desc    Remove user from favorites
-// @route   DELETE /api/users/favorites/:userId
-// @access  Private
 export const removeFavourite = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -383,9 +383,6 @@ export const removeFavourite = async (req, res) => {
   }
 };
 
-// @desc    Verify user email
-// @route   POST /api/users/verify-email
-// @access  Public
 export const verifyEmail = async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -397,19 +394,7 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    const user = await User.findOneAndUpdate(
-      { email },
-      { isVerified: true },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
-    await Token.deleteOne({ _id: token._id });
+ 
 
     res.status(200).json({
       success: true,
@@ -423,9 +408,6 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// @desc    Purchase additional storage
-// @route   POST /api/users/purchase-storage
-// @access  Private
 export const purchaseStorage = async (req, res) => {
   try {
     const userId = req.user_id;
@@ -486,9 +468,6 @@ export const purchaseStorage = async (req, res) => {
   }
 };
 
-// @desc    Get storage information
-// @route   GET /api/users/storage
-// @access  Private
 export const getStorageInfo = async (req, res) => {
   try {
     const user = await User.findById(req.user_id).select(

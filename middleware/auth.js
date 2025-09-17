@@ -1,29 +1,33 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 const verifyToken = (req, res, next) => {
-  const token =
-    req.cookies?.token ||
-    req.body.token ||
-    req.query.token ||
-    req.headers['x-access-token'] ||
-    req.headers?.authorization?.split(' ')[1] ||
-    req.headers?.Authorization?.split(' ')[1];
-
-  if (!token) {
-    return res.status(403).send({
-      success: false,
-      message: 'A token is required for authentication',
-    });
-  }
   try {
+    // Pick token from common places
+    const token =
+      req.headers.authorization?.split(" ")[1] ||
+      req.cookies?.token ||
+      req.body.token ||
+      req.query.token;
+
+    if (!token) {
+      return res.status(403).json({
+        success: false,
+        message: "Token required for authentication",
+      });
+    }
+
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user_id = decoded.user_id;
+
+    next();
   } catch (err) {
-    return res
-      .status(401)
-      .send({ success: false, error: err.message, message: 'invalid token' });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+      error: err.message,
+    });
   }
-  return next();
 };
 
 export default verifyToken;
