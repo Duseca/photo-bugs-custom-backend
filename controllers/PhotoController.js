@@ -3,11 +3,9 @@ import User from '../models/User.js';
 import Transaction from '../models/Transactions.js';
 import { uploadImageWithWatermark } from '../utils/handleImages.js';
 import { memoryUpload } from '../config/multer.js';
-// import stripe from 'stripe';
-
-// @desc    Get all photos created by the current user (photographer)
-// @route   GET /api/photos/creator
-// @access  Private
+import { getGoogleAuthClient } from '../utils/googleClient.js';
+import { google } from "googleapis";
+import stream from "stream";
 export const getCreatorImages = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -33,36 +31,56 @@ export const getCreatorImages = async (req, res) => {
       .json({ message: 'Error fetching photos', error: error.message });
   }
 };
-// @desc    Upload a new photo
-// @route   POST /api/photos
-// @access  Private
 export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     memoryUpload(req, res, async (err) => {
       if (err) {
         return res.status(400).json({
-          message: 'File upload error',
+          message: "File upload error",
           error: err.message,
         });
       }
 
       if (!req.file) {
-        return res.status(400).json({ message: 'No image uploaded' });
+        return res.status(400).json({ message: "No image uploaded" });
       }
+
       if (user.storage.used + req.file.size > user.storage.max) {
-        return res.status(400).json({ message: 'Insufficient storage space' });
+        return res.status(400).json({ message: "Insufficient storage space" });
       }
 
       try {
-        const { originalUrl, watermarkedUrl } = await uploadImageWithWatermark(
-          req.file
-        );
+        // 🔹 Get Google OAuth client with refresh handling
+        const oauth2Client = await getGoogleAuthClient(user);
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
 
+        // Convert buffer -> stream
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(req.file.buffer);
+
+        // 🔹 Upload to Google Drive
+        const response = await drive.files.create({
+          requestBody: {
+            name: req.file.originalname,
+            mimeType: req.file.mimetype,
+          },
+          media: {
+            mimeType: req.file.mimetype,
+            body: bufferStream,
+          },
+          fields: "id, webViewLink, webContentLink",
+        });
+
+        // 🔹 Here you could apply watermarking separately if needed
+        const originalUrl = response.data.webContentLink;
+        const watermarkedUrl = response.data.webViewLink; // placeholder
+
+        // Save DB record
         const photo = new Photo({
           created_by: req.user_id,
           link: originalUrl,
@@ -80,22 +98,19 @@ export const uploadImage = async (req, res) => {
         res.status(201).json(photo);
       } catch (error) {
         res.status(500).json({
-          message: 'Error processing image',
+          message: "Error uploading image to Google Drive",
           error: error.message,
         });
       }
     });
   } catch (error) {
     res.status(500).json({
-      message: 'Server error',
+      message: "Server error",
       error: error.message,
     });
   }
 };
 
-// @desc    Update photo (only by creator)
-// @route   PUT /api/photos/:id
-// @access  Private
 export const updateImage = async (req, res) => {
   try {
     const photo = await Photo.findOne({
@@ -121,9 +136,6 @@ export const updateImage = async (req, res) => {
   }
 };
 
-// @desc    Delete photo (only by creator)
-// @route   DELETE /api/photos/:id
-// @access  Private
 export const deleteImage = async (req, res) => {
   try {
     const photo = await Photo.findOneAndDelete({
@@ -151,9 +163,6 @@ export const deleteImage = async (req, res) => {
   }
 };
 
-// @desc    Get photo by ID (with access control)
-// @route   GET /api/photos/:id
-// @access  Private
 export const getImageById = async (req, res) => {
   try {
     const photo = await Photo.findById(req.params.id).populate(

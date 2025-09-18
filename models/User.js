@@ -47,6 +47,11 @@ const UserSchema = new Schema(
     ],
     isVerified: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false },
+    google: {
+  accessToken: { type: String },
+  refreshToken: { type: String },
+  expiryDate: { type: Number }, // timestamp (ms)
+}
   },
   { timestamps: true }
 );
