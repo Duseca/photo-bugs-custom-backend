@@ -31,85 +31,85 @@ export const getCreatorImages = async (req, res) => {
       .json({ message: 'Error fetching photos', error: error.message });
   }
 };
-// export const uploadImage = async (req, res) => {
-//   try {
-//     const user = await User.findById(req.user_id);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
+export const uploadImage = async (req, res) => {
+  // try {
+  //   const user = await User.findById(req.user_id);
+  //   if (!user) {
+  //     return res.status(404).json({ message: "User not found" });
+  //   }
 
-//     memoryUpload(req, res, async (err) => {
-//       if (err) {
-//         return res.status(400).json({
-//           message: "File upload error",
-//           error: err.message,
-//         });
-//       }
+  //   memoryUpload(req, res, async (err) => {
+  //     if (err) {
+  //       return res.status(400).json({
+  //         message: "File upload error",
+  //         error: err.message,
+  //       });
+  //     }
 
-//       if (!req.file) {
-//         return res.status(400).json({ message: "No image uploaded" });
-//       }
+  //     if (!req.file) {
+  //       return res.status(400).json({ message: "No image uploaded" });
+  //     }
 
-//       if (user.storage.used + req.file.size > user.storage.max) {
-//         return res.status(400).json({ message: "Insufficient storage space" });
-//       }
+  //     if (user.storage.used + req.file.size > user.storage.max) {
+  //       return res.status(400).json({ message: "Insufficient storage space" });
+  //     }
 
-//       try {
-//         // 🔹 Get Google OAuth client with refresh handling
-//         const oauth2Client = await getGoogleAuthClient(user);
-//         const drive = google.drive({ version: "v3", auth: oauth2Client });
+  //     try {
+  //       // 🔹 Get Google OAuth client with refresh handling
+  //       const oauth2Client = await getGoogleAuthClient(user);
+  //       const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-//         // Convert buffer -> stream
-//         const bufferStream = new stream.PassThrough();
-//         bufferStream.end(req.file.buffer);
+  //       // Convert buffer -> stream
+  //       const bufferStream = new stream.PassThrough();
+  //       bufferStream.end(req.file.buffer);
 
-//         // 🔹 Upload to Google Drive
-//         const response = await drive.files.create({
-//           requestBody: {
-//             name: req.file.originalname,
-//             mimeType: req.file.mimetype,
-//           },
-//           media: {
-//             mimeType: req.file.mimetype,
-//             body: bufferStream,
-//           },
-//           fields: "id, webViewLink, webContentLink",
-//         });
+  //       // 🔹 Upload to Google Drive
+  //       const response = await drive.files.create({
+  //         requestBody: {
+  //           name: req.file.originalname,
+  //           mimeType: req.file.mimetype,
+  //         },
+  //         media: {
+  //           mimeType: req.file.mimetype,
+  //           body: bufferStream,
+  //         },
+  //         fields: "id, webViewLink, webContentLink",
+  //       });
 
-//         // 🔹 Here you could apply watermarking separately if needed
-//         const originalUrl = response.data.webContentLink;
-//         const watermarkedUrl = response.data.webViewLink; // placeholder
+  //       // 🔹 Here you could apply watermarking separately if needed
+  //       const originalUrl = response.data.webContentLink;
+  //       const watermarkedUrl = response.data.webViewLink; // placeholder
 
-//         // Save DB record
-//         const photo = new Photo({
-//           created_by: req.user_id,
-//           link: originalUrl,
-//           watermarked_link: watermarkedUrl,
-//           price: req.body.price,
-//           size: req.file.size,
-//           metadata: req.body.metadata || {},
-//         });
+  //       // Save DB record
+  //       const photo = new Photo({
+  //         created_by: req.user_id,
+  //         link: originalUrl,
+  //         watermarked_link: watermarkedUrl,
+  //         price: req.body.price,
+  //         size: req.file.size,
+  //         metadata: req.body.metadata || {},
+  //       });
 
-//         await photo.save();
+  //       await photo.save();
 
-//         user.storage.used += req.file.size;
-//         await user.save();
+  //       user.storage.used += req.file.size;
+  //       await user.save();
 
-//         res.status(201).json(photo);
-//       } catch (error) {
-//         res.status(500).json({
-//           message: "Error uploading image to Google Drive",
-//           error: error.message,
-//         });
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       message: "Server error",
-//       error: error.message,
-//     });
-//   }
-// };
+  //       res.status(201).json(photo);
+  //     } catch (error) {
+  //       res.status(500).json({
+  //         message: "Error uploading image to Google Drive",
+  //         error: error.message,
+  //       });
+  //     }
+  //   });
+  // } catch (error) {
+  //   res.status(500).json({
+  //     message: "Server error",
+  //     error: error.message,
+  //   });
+  // }
+};
 
 export const updateImage = async (req, res) => {
   try {

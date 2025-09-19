@@ -9,7 +9,7 @@ const UserSchema = new Schema(
     user_name: { type: String, required: true },
     profile_picture: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false },
     phone: { type: String, required: true },
     device_token: { type: String, default: '' },
     stripe_account_id: { type: String },
@@ -38,6 +38,8 @@ const UserSchema = new Schema(
       max: { type: Number, default: 250 * 1024 * 1024 }, // Default 250MB in bytes
       used: { type: Number, default: 0 }, // in bytes
     },
+    socialProvider: { type: String, enum: ["google", "facebook", null], default: null },
+    socialId: { type: String, default: null },
     storagePurchases: [
       {
         bytes: Number, // Storage added in bytes
@@ -47,11 +49,6 @@ const UserSchema = new Schema(
     ],
     isVerified: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false },
-    google: {
-  accessToken: { type: String },
-  refreshToken: { type: String },
-  expiryDate: { type: Number }, // timestamp (ms)
-}
   },
   { timestamps: true }
 );
