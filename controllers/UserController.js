@@ -44,10 +44,49 @@ export const sendVerificationEmail = async (req, res) => {
 };
 export const registerUser = async (req, res) => {
   try {
-    const { name, user_name, email, password, phone, device_token , role} = req.body;
+    const {
+      name,
+      user_name,
+      email,
+      password,
+      phone,
+      device_token,
+      role,
+      profile_picture,
+      socialProvider,
+      socialId,
+    } = req.body;
 
+    // Social signup
+    if (socialProvider && socialId) {
+      let user = await User.findOne({ socialId, socialProvider });
+      if (!user) {
+        user = await User.create({
+          name,
+          user_name,
+          email,
+          phone,
+          role,
+          device_token,
+          profile_picture,
+          socialProvider,
+          socialId,
+          isVerified: true, // auto-verified since provider handles it
+        });
+      }
+      const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
+      const userResponse = user.toObject();
+      delete userResponse.password;
+
+      return res.status(201).json({
+        success: true,
+        data: { user: userResponse, token },
+        message: 'User registered via social login successfully',
+      });
+    }
+
+    // Normal email signup (verification token check)
     const tokenRecord = await Token.findOne({ email });
-  
     if (!tokenRecord) {
       return res.status(400).json({
         success: false,
@@ -63,85 +102,79 @@ export const registerUser = async (req, res) => {
       phone,
       role,
       device_token,
-      profile_picture: req.body.profile_picture,
-      isVerified: true, // mark verified
-      storage: {
-        max: 250 * 1024 * 1024,
-        used: 0,
-      },
+      profile_picture,
+      isVerified: true,
     });
 
     await Token.deleteOne({ email });
 
     const jwtToken = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
-
     const userResponse = user.toObject();
     delete userResponse.password;
 
     res.status(201).json({
       success: true,
-      data: {
-        user: userResponse,
-        token: jwtToken,
-      },
+      data: { user: userResponse, token: jwtToken },
       message: 'User registered successfully',
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, socialProvider, socialId } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials',
-      });
-    }
+    let user;
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials',
-      });
-    }
+    // Social login
+    if (socialProvider && socialId) {
+      user = await User.findOne({ socialId, socialProvider });
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'No account found. Please sign up first with social login.',
+        });
+      }
+    } else {
+      // Normal login
+      user = await User.findOne({ email });
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
 
-    if (!user.isVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Please verify your email first',
-      });
+      const isMatch = await user.matchPassword(password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
+
+      if (!user.isVerified) {
+        return res.status(403).json({
+          success: false,
+          message: 'Please verify your email first',
+        });
+      }
     }
 
     const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
-
     const userResponse = user.toObject();
     delete userResponse.password;
 
     res.status(200).json({
       success: true,
-      data: {
-        user: userResponse,
-        token,
-      },
+      data: { user: userResponse, token },
       message: 'User logged in successfully',
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user_id)
@@ -181,7 +214,6 @@ export const getCurrentUser = async (req, res) => {
     });
   }
 };
-
 export const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -211,7 +243,6 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
-
 export const updateUser = async (req, res) => {
   try {
     const updates = req.body;
@@ -267,7 +298,6 @@ export const updateUser = async (req, res) => {
     });
   }
 };
-
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -303,7 +333,6 @@ export const updatePassword = async (req, res) => {
     });
   }
 };
-
 export const addFavourite = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -343,7 +372,6 @@ export const addFavourite = async (req, res) => {
     });
   }
 };
-
 export const removeFavourite = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -382,7 +410,6 @@ export const removeFavourite = async (req, res) => {
     });
   }
 };
-
 export const verifyEmail = async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -407,7 +434,6 @@ export const verifyEmail = async (req, res) => {
     });
   }
 };
-
 export const purchaseStorage = async (req, res) => {
   try {
     const userId = req.user_id;
@@ -467,7 +493,6 @@ export const purchaseStorage = async (req, res) => {
     });
   }
 };
-
 export const getStorageInfo = async (req, res) => {
   try {
     const user = await User.findById(req.user_id).select(
