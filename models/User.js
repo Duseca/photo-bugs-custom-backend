@@ -14,7 +14,7 @@ const UserSchema = new Schema(
     device_token: { type: String, default: '' },
     stripe_account_id: { type: String },
     phone: { type: String, required: true },
-    role: { type: String  , enum : ["creator", "client"], required:true},
+    role: { type: String  , enum : ["creator", "client"]},
     gender: { type: String,  enum : ["male", "female", "other"] },
     dob: { type: Date },
     address: {
@@ -49,6 +49,11 @@ const UserSchema = new Schema(
     ],
     isVerified: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false },
+    googleTokens: {
+  access_token: { type: String },
+  refresh_token: { type: String },
+  expiry_date: { type: Number }, // optional
+},
   },
   { timestamps: true }
 );

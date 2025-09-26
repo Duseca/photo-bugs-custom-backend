@@ -31,84 +31,72 @@ export const getCreatorImages = async (req, res) => {
       .json({ message: 'Error fetching photos', error: error.message });
   }
 };
+
 export const uploadImage = async (req, res) => {
-  // try {
-  //   const user = await User.findById(req.user_id);
-  //   if (!user) {
-  //     return res.status(404).json({ message: "User not found" });
-  //   }
+  try {
+    const user = await User.findById(req.user_id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  //   memoryUpload(req, res, async (err) => {
-  //     if (err) {
-  //       return res.status(400).json({
-  //         message: "File upload error",
-  //         error: err.message,
-  //       });
-  //     }
+    memoryUpload(req, res, async (err) => {
+      if (err) return res.status(400).json({ message: "File upload error", error: err.message });
+      if (!req.file) return res.status(400).json({ message: "No image uploaded" });
+      if (user.storage.used + req.file.size > user.storage.max)
+        return res.status(400).json({ message: "Insufficient storage space" });
 
-  //     if (!req.file) {
-  //       return res.status(400).json({ message: "No image uploaded" });
-  //     }
+      try {
+        const oauth2Client = await getGoogleAuthClient(user);
+       console.log("clint",oauth2Client)
+        // 🔹 Create Google Drive instance
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-  //     if (user.storage.used + req.file.size > user.storage.max) {
-  //       return res.status(400).json({ message: "Insufficient storage space" });
-  //     }
+        // Convert buffer to stream
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(req.file.buffer);
 
-  //     try {
-  //       // 🔹 Get Google OAuth client with refresh handling
-  //       const oauth2Client = await getGoogleAuthClient(user);
-  //       const drive = google.drive({ version: "v3", auth: oauth2Client });
+        // 🔹 Upload file
+        const response = await drive.files.create({
+          requestBody: {
+            name: req.file.originalname,
+            mimeType: req.file.mimetype,
+          },
+          media: {
+            mimeType: req.file.mimetype,
+            body: bufferStream,
+          },
+          fields: "id, webViewLink, webContentLink",
+        });
+       console.log(response, "response generated")
+        // const originalUrl = response.data.webContentLink;
+        // const watermarkedUrl = response.data.webViewLink; // placeholder
 
-  //       // Convert buffer -> stream
-  //       const bufferStream = new stream.PassThrough();
-  //       bufferStream.end(req.file.buffer);
+        // // 🔹 Save file record in DB
+        // const photo = new Photo({
+        //   created_by: req.user_id,
+        //   link: originalUrl,
+        //   watermarked_link: watermarkedUrl,
+        //   price: req.body.price,
+        //   size: req.file.size,
+        //   metadata: req.body.metadata || {},
+        // });
+        // await photo.save();
 
-  //       // 🔹 Upload to Google Drive
-  //       const response = await drive.files.create({
-  //         requestBody: {
-  //           name: req.file.originalname,
-  //           mimeType: req.file.mimetype,
-  //         },
-  //         media: {
-  //           mimeType: req.file.mimetype,
-  //           body: bufferStream,
-  //         },
-  //         fields: "id, webViewLink, webContentLink",
-  //       });
+        // // 🔹 Update user's storage used
+        // user.storage.used += req.file.size;
+        // await user.save();
 
-  //       // 🔹 Here you could apply watermarking separately if needed
-  //       const originalUrl = response.data.webContentLink;
-  //       const watermarkedUrl = response.data.webViewLink; // placeholder
-
-  //       // Save DB record
-  //       const photo = new Photo({
-  //         created_by: req.user_id,
-  //         link: originalUrl,
-  //         watermarked_link: watermarkedUrl,
-  //         price: req.body.price,
-  //         size: req.file.size,
-  //         metadata: req.body.metadata || {},
-  //       });
-
-  //       await photo.save();
-
-  //       user.storage.used += req.file.size;
-  //       await user.save();
-
-  //       res.status(201).json(photo);
-  //     } catch (error) {
-  //       res.status(500).json({
-  //         message: "Error uploading image to Google Drive",
-  //         error: error.message,
-  //       });
-  //     }
-  //   });
-  // } catch (error) {
-  //   res.status(500).json({
-  //     message: "Server error",
-  //     error: error.message,
-  //   });
-  // }
+        // res.status(201).json(photo);
+      } catch (error) {
+        console.error("Google Drive upload error:", error);
+        res.status(500).json({
+          message: "Error uploading image to Google Drive",
+          error: error.message,
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Server error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 
 export const updateImage = async (req, res) => {

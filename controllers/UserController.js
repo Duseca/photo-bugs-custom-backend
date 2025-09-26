@@ -251,7 +251,7 @@ export const updateUser = async (req, res) => {
     if (updates.email || updates.password) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot update email or password with this endpoint',
+        message: "Cannot update email or password with this endpoint",
       });
     }
 
@@ -259,29 +259,39 @@ export const updateUser = async (req, res) => {
     if (!currentUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
-    const nestedFields = ['address', 'settings', 'location'];
+    if (
+      updates.access_token ||
+      updates.refresh_token ||
+      updates.expires_in
+    ) {
+      currentUser.googleTokens = {
+        access_token: updates.access_token || currentUser.googleTokens?.access_token,
+        refresh_token: updates.refresh_token || currentUser.googleTokens?.refresh_token,
+        expiry_date:
+          Date.now() + ((updates.expires_in || 3600) * 1000),
+      };
+      delete updates.access_token;
+      delete updates.refresh_token;
+      delete updates.expires_in;
+    }
+
+    // Handle nested objects like address, settings, location
+    const nestedFields = ["address", "settings", "location"];
     nestedFields.forEach((field) => {
       if (updates[field]) {
         updates[field] = {
-          ...currentUser[field].toObject(), // Keep existing values
-          ...updates[field], // Apply updates
+          ...currentUser[field]?.toObject?.() || {},
+          ...updates[field],
         };
       }
     });
 
-    // Update the user
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: updates },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    Object.assign(currentUser, updates);
+    const updatedUser = await currentUser.save();
 
     const userResponse = updatedUser.toObject();
     delete userResponse.password;
@@ -289,9 +299,10 @@ export const updateUser = async (req, res) => {
     res.status(200).json({
       success: true,
       data: userResponse,
-      message: 'User updated successfully',
+      message: "User updated successfully",
     });
   } catch (error) {
+    console.error("updateUser error:", error);
     res.status(500).json({
       success: false,
       message: error.message,

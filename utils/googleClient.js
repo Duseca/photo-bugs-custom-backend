@@ -2,6 +2,11 @@ import { google } from "googleapis";
 import dotenv from 'dotenv';
 dotenv.config();
 export const getGoogleAuthClient = async (user) => {
+  if (!user.googleTokens || !user.googleTokens.access_token) {
+    throw new Error("Google account not linked for this user");
+  }
+  const expiryDate = user.googleTokens.expiry_date || Date.now() + 3600 * 1000;
+
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -9,23 +14,31 @@ export const getGoogleAuthClient = async (user) => {
   );
 
   oauth2Client.setCredentials({
-    access_token: user.google.accessToken,
-    refresh_token: user.google.refreshToken,
-    expiry_date: user.google.expiryDate,
+    access_token: user.googleTokens.access_token,
+    refresh_token: user.googleTokens.refresh_token,
+    expiry_date: expiryDate,
   });
 
-  // Check if expired
-  if (!user.google.accessToken || Date.now() >= user.google.expiryDate) {
-    const tokens = await oauth2Client.refreshAccessToken();
-    const newTokens = tokens.credentials;
+  if (Date.now() >= expiryDate) {
+    const { credentials } = await oauth2Client.refreshAccessToken();
 
-    // Save new tokens
-    user.google.accessToken = newTokens.access_token;
-    user.google.expiryDate = newTokens.expiry_date;
+    user.googleTokens.access_token = credentials.access_token;
+    user.googleTokens.refresh_token =
+      credentials.refresh_token || user.googleTokens.refresh_token;
+    user.googleTokens.expiry_date =
+      credentials.expiry_date || Date.now() + 3600 * 1000;
+
     await user.save();
-
-    oauth2Client.setCredentials(newTokens);
+    oauth2Client.setCredentials(user.googleTokens);
   }
 
   return oauth2Client;
+};
+
+export const getOAuthClient = () => {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  );
 };
