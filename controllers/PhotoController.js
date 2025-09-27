@@ -66,25 +66,23 @@ export const uploadImage = async (req, res) => {
           fields: "id, webViewLink, webContentLink",
         });
        console.log(response, "response generated")
-        // const originalUrl = response.data.webContentLink;
-        // const watermarkedUrl = response.data.webViewLink; // placeholder
+        const originalUrl = response.data.webContentLink;
+        const watermarkedUrl = response.data.webViewLink; 
 
-        // // 🔹 Save file record in DB
-        // const photo = new Photo({
-        //   created_by: req.user_id,
-        //   link: originalUrl,
-        //   watermarked_link: watermarkedUrl,
-        //   price: req.body.price,
-        //   size: req.file.size,
-        //   metadata: req.body.metadata || {},
-        // });
-        // await photo.save();
+        const photo = new Photo({
+          created_by: req.user_id,
+          link: originalUrl,
+          watermarked_link: watermarkedUrl,
+          price: req.body.price,
+          size: req.file.size,
+          metadata: req.body.metadata || {},
+        });
+        await photo.save();
 
-        // // 🔹 Update user's storage used
-        // user.storage.used += req.file.size;
-        // await user.save();
+        user.storage.used += req.file.size;
+        await user.save();
 
-        // res.status(201).json(photo);
+        res.status(201).json(photo);
       } catch (error) {
         console.error("Google Drive upload error:", error);
         res.status(500).json({
