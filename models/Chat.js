@@ -31,6 +31,7 @@ const ChatSchema = new Schema(
         content: { type: String, required: true },
         photo: { type: Schema.Types.ObjectId, ref: 'Photo' },
         bundle: { type: Schema.Types.ObjectId, ref: 'Bundle' },
+        isRead: { type: Boolean, default: false },
         created_at: { type: Date, default: Date.now },
       },
     ],

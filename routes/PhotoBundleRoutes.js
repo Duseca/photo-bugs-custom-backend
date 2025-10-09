@@ -6,6 +6,7 @@ import {
   updateBundle,
   deleteBundle,
   purchaseBundle,
+  getUserBundlesAndPhotos,
 } from '../controllers/PhotoBundleController.js';
 import verifyToken from '../middleware/auth.js';
 
@@ -17,5 +18,5 @@ router.get('/:id', verifyToken, getBundle);
 router.put('/:id', verifyToken, updateBundle);
 router.delete('/:id', verifyToken, deleteBundle);
 router.post('/:id/purchase', verifyToken, purchaseBundle);
-
+router.get('/:userId/user-photos', verifyToken, getUserBundlesAndPhotos);
 export default router;

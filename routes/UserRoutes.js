@@ -25,7 +25,7 @@ router.post('/verify-email', verifyEmail);
 router.post('/send-email', sendVerificationEmail);
 // Protected routes (require authentication)
 router.get('/me', verifyToken, getCurrentUser);
-router.get('/', verifyToken, getAllUsers);
+router.get('/', getAllUsers);
 router.put('/update', verifyToken, updateUser);
 router.put('/update-password', verifyToken, updatePassword);
 router.get('/storage', verifyToken, getStorageInfo);

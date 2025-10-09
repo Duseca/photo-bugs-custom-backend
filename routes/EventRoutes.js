@@ -15,10 +15,9 @@ import {
 import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
-
+router.get('/search', searchEvents);
 router.get('/', verifyToken, getAllEvents);
 router.get('/:id', verifyToken, getEventById);
-router.get('/search', verifyToken, searchEvents);
 router.get('/me/created', verifyToken, getCurrentUserEvents);
 router.get('/me/photographer', verifyToken, getPhotographerEvents);
 router.post('/', verifyToken, createEvent);

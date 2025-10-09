@@ -262,36 +262,38 @@ export const updateEvent = async (req, res) => {
 // @access  Private
 export const deleteEvent = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const eventId = req.params.id;
+    const userId = req.user_id;
+    const event = await Event.findById(eventId);
 
     if (!event) {
       return res.status(404).json({
         success: false,
-        message: 'Event not found',
+        message: "Event not found",
       });
     }
-
-    // Check if user is event creator
-    if (event.created_by.toString() !== req.user_id.toString()) {
+    if (event.created_by.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to delete this event',
+        message: "You are not authorized to delete this event",
       });
     }
 
-    await event.remove();
+    await Event.deleteOne({ _id: eventId });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: {},
+      message: "Event deleted successfully",
     });
   } catch (error) {
+    console.error("Error deleting event:", error);
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
 
 // @desc    Add recipients to event
 // @route   POST /api/events/:id/recipients
@@ -485,13 +487,12 @@ export const declineInvite = async (req, res) => {
 // @access  Public
 export const searchEvents = async (req, res) => {
   try {
-    const { location, role, type, distance = 10 } = req.query;
-    let query = {};
+    const { location, role, type, name, distance = 10 } = req.query;
+    const query = {};
 
-    // Location filter (within distance in km)
+    // ✅ Geo location filter
     if (location) {
       const [longitude, latitude] = location.split(',').map(Number);
-
       if (!isNaN(longitude) && !isNaN(latitude)) {
         query.location = {
           $near: {
@@ -499,33 +500,30 @@ export const searchEvents = async (req, res) => {
               type: 'Point',
               coordinates: [longitude, latitude],
             },
-            $maxDistance: distance * 1000, // Convert km to meters
+            $maxDistance: Number(distance) * 1000, // Convert km → meters
           },
         };
       }
     }
 
-    // Role filter
-    if (role) {
-      query.role = role;
-    }
+    // ✅ Text filters
+    if (role) query.role = role;
+    if (type) query.type = type;
+    if (name) query.name = { $regex: name, $options: 'i' };
 
-    // Type filter
-    if (type) {
-      query.type = type;
-    }
-
+    // ✅ Fetch and populate related users
     const events = await Event.find(query)
       .populate('created_by', 'name user_name profile_picture')
       .populate('photographer', 'name user_name profile_picture');
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: events.length,
       data: events,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error('Search Events Error:', error);
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

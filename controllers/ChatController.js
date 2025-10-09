@@ -105,6 +105,49 @@ export const getUserChats = async (req, res) => {
   }
 };
 
+export const getChatById = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    // Find chat by ID and populate relevant fields
+    const chat = await Chat.findById(chatId)
+      .populate('participants', 'name user_name profile_picture')
+      .populate('lastSeen.user', 'name user_name');
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found',
+      });
+    }
+
+    const userLastSeen = chat.lastSeen.find(
+      (ls) => ls.user._id.toString() === req.user_id.toString()
+    );
+
+    const lastSeenTime = userLastSeen ? userLastSeen.timestamp : new Date(0);
+
+    const unreadCount = chat.messages.filter(
+      (msg) =>
+        msg.created_at > lastSeenTime &&
+        msg.created_by.toString() !== req.user_id.toString()
+    ).length;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...chat.toObject(),
+        unreadCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // @desc    Add message to chat
 // @route   POST /api/chats/:id/messages
 // @access  Private
@@ -114,7 +157,7 @@ export const addMessage = async (req, res) => {
     const chatId = req.params.id;
     const userId = req.user_id;
 
-    // Validate chat exists and user is participant
+    // Check chat existence and participation
     const chat = await Chat.findOne({
       _id: chatId,
       participants: userId,
@@ -127,7 +170,7 @@ export const addMessage = async (req, res) => {
       });
     }
 
-    // Validate photo/bundle references
+    // Validate message type requirements
     if (type === 'Photo' && !photoId) {
       return res.status(400).json({
         success: false,
@@ -142,7 +185,7 @@ export const addMessage = async (req, res) => {
       });
     }
 
-    // Create message
+    // Create new message object
     const newMessage = {
       created_by: userId,
       type,
@@ -152,28 +195,43 @@ export const addMessage = async (req, res) => {
       created_at: new Date(),
     };
 
+    // Push message into chat
     chat.messages.push(newMessage);
     await chat.save();
 
-    // Populate references
-    const populatedMessage = await populateMessage(newMessage);
-    populatedMessage.created_by = await User.findById(userId).select(
-      'name user_name profile_picture'
-    );
+    // Get the last inserted message (exactly how it’s stored)
+    const storedMessage = chat.messages[chat.messages.length - 1];
 
-    // Emit real-time event (see real-time section below)
+    // Get user details
+    const user = await User.findById(userId).select('name user_name profile_picture email');
+
+    // Build detailed response (no populate helper)
+    const detailedMessage = {
+      ...storedMessage.toObject(),
+      created_by: user,
+      chat: {
+        _id: chat._id,
+        participants: chat.participants,
+        created_at: chat.created_at,
+        updated_at: chat.updated_at,
+      },
+    };
+
+    // Real-time broadcast (optional)
     if (req.io) {
       req.io.to(chatId).emit('new_message', {
         chatId,
-        message: populatedMessage,
+        message: detailedMessage,
       });
     }
 
+    // Send full message with chat + user data
     res.status(201).json({
       success: true,
-      data: populatedMessage,
+      data: detailedMessage,
     });
   } catch (error) {
+    console.error('Error adding message:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -186,8 +244,8 @@ export const addMessage = async (req, res) => {
 // @access  Private
 export const updateMessage = async (req, res) => {
   try {
-    const { content } = req.body;
-    const { chatId, messageId } = req.params;
+    const { content, markAsRead, chatId } = req.body;
+    const {  messageId } = req.params;
     const userId = req.user_id;
 
     const chat = await Chat.findOne({
@@ -210,15 +268,33 @@ export const updateMessage = async (req, res) => {
       });
     }
 
-    // Check if user is the message creator
-    if (message.created_by.toString() !== userId.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this message',
-      });
+    // 🧩 Update content (only for creator)
+    if (content) {
+      if (message.created_by.toString() !== userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to edit this message',
+        });
+      }
+      message.content = content;
     }
 
-    message.content = content || message.content;
+    // 🧩 Mark as read (any participant can do this)
+    if (markAsRead) {
+      message.isRead = true; // ✅ set the flag
+
+      // also update user's lastSeen timestamp
+      const userLastSeen = chat.lastSeen.find(
+        (ls) => ls.user.toString() === userId.toString()
+      );
+
+      if (userLastSeen) {
+        userLastSeen.timestamp = new Date();
+      } else {
+        chat.lastSeen.push({ user: userId, timestamp: new Date() });
+      }
+    }
+
     await chat.save();
 
     const populatedMessage = await populateMessage(message.toObject());
@@ -231,13 +307,13 @@ export const updateMessage = async (req, res) => {
       data: populatedMessage,
     });
   } catch (error) {
+    console.error('Update message error:', error);
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
-
 // @desc    Delete message
 // @route   DELETE /api/chats/:chatId/messages/:messageId
 // @access  Private

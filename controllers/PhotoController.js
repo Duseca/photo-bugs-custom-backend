@@ -40,20 +40,18 @@ export const uploadImage = async (req, res) => {
     memoryUpload(req, res, async (err) => {
       if (err) return res.status(400).json({ message: "File upload error", error: err.message });
       if (!req.file) return res.status(400).json({ message: "No image uploaded" });
-      if (user.storage.used + req.file.size > user.storage.max)
+      if (user.storage.used + req.file.size > user.storage.max) {
         return res.status(400).json({ message: "Insufficient storage space" });
+      }
 
       try {
         const oauth2Client = await getGoogleAuthClient(user);
-       console.log("clint",oauth2Client)
-        // 🔹 Create Google Drive instance
         const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-        // Convert buffer to stream
         const bufferStream = new stream.PassThrough();
         bufferStream.end(req.file.buffer);
 
-        // 🔹 Upload file
+        // Upload file to Google Drive
         const response = await drive.files.create({
           requestBody: {
             name: req.file.originalname,
@@ -65,10 +63,11 @@ export const uploadImage = async (req, res) => {
           },
           fields: "id, webViewLink, webContentLink",
         });
-       console.log(response, "response generated")
-        const originalUrl = response.data.webContentLink;
-        const watermarkedUrl = response.data.webViewLink; 
 
+        const originalUrl = response.data.webContentLink;
+        const watermarkedUrl = response.data.webViewLink;
+
+        // Save photo record in DB
         const photo = new Photo({
           created_by: req.user_id,
           link: originalUrl,
@@ -79,14 +78,15 @@ export const uploadImage = async (req, res) => {
         });
         await photo.save();
 
+        // Update user storage usage
         user.storage.used += req.file.size;
         await user.save();
 
         res.status(201).json(photo);
       } catch (error) {
         console.error("Google Drive upload error:", error);
-        res.status(500).json({
-          message: "Error uploading image to Google Drive",
+        res.status(401).json({
+          message: "Google authentication failed. Please re-link your Google account.",
           error: error.message,
         });
       }

@@ -1,6 +1,5 @@
 import PhotoBundle from '../models/PhotoBundle.js';
 import Photo from '../models/Photo.js';
-import Transaction from '../models/Transactions.js';
 
 // @desc    Create a new photo bundle
 // @route   POST /api/photo-bundles
@@ -107,7 +106,41 @@ export const getBundle = async (req, res) => {
       .json({ message: 'Error fetching bundle', error: error.message });
   }
 };
+export const getUserBundlesAndPhotos = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user_id;
 
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const bundles = await PhotoBundle.find({
+      $or: [{ created_by: userId }, { ownership: userId }],
+    })
+      .populate('photos bonus_photos cover_photo')
+      .sort({ createdAt: -1 });
+
+    const photos = await Photo.find({ uploaded_by: userId }).sort({ createdAt: -1 });
+
+    // If no data found
+    if (!bundles.length && !photos.length) {
+      return res.status(404).json({ message: 'No bundles or photos found for this user' });
+    }
+
+    res.json({
+      userId,
+      totalBundles: bundles.length,
+      totalPhotos: photos.length,
+      bundles,
+      photos,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error fetching user bundles or photos',
+      error: error.message,
+    });
+  }
+};
 // @desc    Update a photo bundle
 // @route   PUT /api/photo-bundles/:id
 // @access  Private (creator only)

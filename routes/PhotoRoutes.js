@@ -16,7 +16,6 @@ router.get('/creator', verifyToken, getCreatorImages);
 router.post('/', verifyToken, uploadImage);
 router.put('/:id', verifyToken, updateImage);
 router.delete('/:id', verifyToken, deleteImage);
-router.get('/:id', verifyToken, getImageById);
 // router.post('/:id/buy', verifyToken, buyImage);
 
 // router.post(
