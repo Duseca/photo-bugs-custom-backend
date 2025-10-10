@@ -543,7 +543,65 @@ export const getStorageInfo = async (req, res) => {
     });
   }
 };
+export const searchCreators = async (req, res) => {
+  try {
+    const { name, email, bio, interests, gender, country, town } = req.query;
 
+    // Base query: only creators
+    const query = { role: "creator" };
+
+    // Dynamic filtering based on provided query params
+    if (name) {
+      const regex = new RegExp(name, "i");
+      query.$or = [
+        { name: regex },
+        { user_name: regex },
+        { bio: regex },
+      ];
+    }
+
+    if (email) {
+      query.email = new RegExp(email, "i");
+    }
+
+    if (bio) {
+      query.bio = new RegExp(bio, "i");
+    }
+
+    if (interests) {
+      // Support multiple interests separated by commas
+      const interestArray = interests.split(",").map((i) => i.trim());
+      query.interests = { $in: interestArray };
+    }
+
+    if (gender) {
+      query.gender = gender;
+    }
+
+    if (country) {
+      query["address.country"] = new RegExp(country, "i");
+    }
+
+    if (town) {
+      query["address.town"] = new RegExp(town, "i");
+    }
+
+    // Perform search
+    const creators = await User.find(query).select(
+      "name user_name email bio interests profile_picture gender address"
+    );
+
+    res.status(200).json({
+      count: creators.length,
+      results: creators,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
 // export const startStripeOnboarding = async (req, res) => {
 //   try {
 //     const user = await User.findById(req.user_id);

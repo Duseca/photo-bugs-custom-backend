@@ -176,102 +176,67 @@ export const getImageById = async (req, res) => {
       .json({ message: 'Error fetching photo', error: error.message });
   }
 };
+export const searchPhotos = async (req, res) => {
+  try {
+    const {
+      created_by,
+      ownership,
+      link,
+      watermarked_link,
+      minPrice,
+      maxPrice,
+      startDate,
+      endDate,
+      metadataKey,
+      metadataValue,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      limit = 20,
+      page = 1,
+    } = req.query;
 
-// @desc    Buy photo (initiate payment)
-// @route   POST /api/photos/:id/buy
-// @access  Private
-// export const buyImage = async (req, res) => {
-//   try {
-//     const photo = await Photo.findById(req.params.id).populate('created_by');
-//     if (!photo) {
-//       return res.status(404).json({ message: 'Photo not found' });
-//     }
+    const query = {};
+    if (created_by) query.created_by = created_by;
+    if (ownership) query.ownership = ownership;
+    if (link)
+      query.link = { $regex: link, $options: 'i' };
+    if (watermarked_link)
+      query.watermarked_link = { $regex: watermarked_link, $options: 'i' };
 
-//     const alreadyOwns = photo.ownership.includes(req.user_id);
-//     if (alreadyOwns) {
-//       return res.status(400).json({ message: 'You already own this photo' });
-//     }
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
 
-//     const platformFee = Math.round(photo.price * 0.15 * 100);
-//     const photographerEarnings = Math.round(photo.price * 0.85 * 100);
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
 
-//     const paymentIntent = await stripe(
-//       process.env.STRIPE_SECRET_KEY
-//     ).paymentIntents.create({
-//       amount: photo.price * 100,
-//       currency: 'usd',
-//       payment_method_types: ['card'],
-//       application_fee_amount: platformFee,
-//       transfer_data: {
-//         destination: photo.created_by.stripe_account_id,
-//       },
-//       metadata: {
-//         buyer_id: req.user_id.toString(),
-//         photo_id: photo._id.toString(),
-//       },
-//     });
+    if (metadataKey && metadataValue) {
+      query[`metadata.${metadataKey}`] = { $regex: metadataValue, $options: 'i' };
+    }
 
-//     const transaction = new Transaction({
-//       seller: photo.created_by,
-//       buyer: req.user_id,
-//       type: 'Photo',
-//       photo: photo._id,
-//       amount: photo.price,
-//       platform_fee: platformFee / 100,
-//       photographer_earnings: photographerEarnings / 100,
-//       stripe_payment_intent_id: paymentIntent.id,
-//       status: 'pending',
-//     });
+    const skip = (Number(page) - 1) * Number(limit);
 
-//     await transaction.save();
+    const photos = await Photo.find(query)
+      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate('created_by ownership');
 
-//     res.json({
-//       clientSecret: paymentIntent.client_secret,
-//       transactionId: transaction._id,
-//     });
-//   } catch (error) {
-//     res
-//       .status(500)
-//       .json({ message: 'Error initiating purchase', error: error.message });
-//   }
-// };
+    const total = await Photo.countDocuments(query);
 
-// // @desc    Handle Stripe webhook
-// // @route   POST /api/photos/webhook
-// // @access  Public
-// export const handleStripeWebhook = async (req, res) => {
-//   const sig = req.headers['stripe-signature'];
-//   let event;
-
-//   try {
-//     event = stripe(process.env.STRIPE_SECRET_KEY).webhooks.constructEvent(
-//       req.body,
-//       sig,
-//       process.env.STRIPE_WEBHOOK_SECRET
-//     );
-//   } catch (err) {
-//     return res.status(400).send(`Webhook Error: ${err.message}`);
-//   }
-
-//   if (event.type === 'payment_intent.succeeded') {
-//     const paymentIntent = event.data.object;
-
-//     try {
-//       const transaction = await Transaction.findOneAndUpdate(
-//         { stripe_payment_intent_id: paymentIntent.id },
-//         { status: 'succeeded' },
-//         { new: true }
-//       ).populate('photo');
-
-//       if (transaction) {
-//         await Photo.findByIdAndUpdate(transaction.photo._id, {
-//           $addToSet: { ownership: transaction.buyer },
-//         });
-//       }
-//     } catch (error) {
-//       console.error('Error processing webhook:', error);
-//     }
-//   }
-
-//   res.json({ received: true });
-// };
+    res.status(200).json({
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+      results: photos,
+    });
+  } catch (error) {
+    console.error('Error searching photos:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

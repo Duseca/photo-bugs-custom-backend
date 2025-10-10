@@ -12,6 +12,7 @@ import {
   getStorageInfo,
   getAllUsers,
   sendVerificationEmail,
+  searchCreators,
   // startStripeOnboarding,
   // checkStripeAccountStatus,
 } from '../controllers/UserController.js';
@@ -32,6 +33,7 @@ router.get('/storage', verifyToken, getStorageInfo);
 router.post('/purchase-storage', verifyToken, purchaseStorage);
 router.post('/favorites/:userId', verifyToken, addFavourite);
 router.delete('/favorites/:userId', verifyToken, removeFavourite);
+router.get('/search-creator',verifyToken, searchCreators);
 // router.post('/stripe/onboard', verifyToken, startStripeOnboarding);
 // router.get('/stripe/account-status', verifyToken, checkStripeAccountStatus);
 
