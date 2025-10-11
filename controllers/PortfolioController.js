@@ -5,7 +5,7 @@ export const createPortfolio = async (req, res) => {
   try {
     console.log(req.body)
     const { media } = req.body;
-    const creatorId = req.user_id; // from JWT middleware
+    const creatorId = req.user_id; 
 
     const user = await User.findById(creatorId);
     if (!user || user.role !== "creator") {
