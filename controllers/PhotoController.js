@@ -31,7 +31,6 @@ export const getCreatorImages = async (req, res) => {
       .json({ message: 'Error fetching photos', error: error.message });
   }
 };
-
 export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
@@ -96,7 +95,6 @@ export const uploadImage = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 export const updateImage = async (req, res) => {
   try {
     const photo = await Photo.findOne({
@@ -121,7 +119,6 @@ export const updateImage = async (req, res) => {
       .json({ message: 'Error updating photo', error: error.message });
   }
 };
-
 export const deleteImage = async (req, res) => {
   try {
     const photo = await Photo.findOneAndDelete({
@@ -148,12 +145,9 @@ export const deleteImage = async (req, res) => {
       .json({ message: 'Error deleting photo', error: error.message });
   }
 };
-
 export const getImageById = async (req, res) => {
   try {
-    const photo = await Photo.findById(req.params.id).populate(
-      'created_by ownership'
-    );
+    const photo = await Photo.findById(req.params.id).populate('created_by ownership');
     if (!photo) {
       return res.status(404).json({ message: 'Photo not found' });
     }
@@ -161,6 +155,13 @@ export const getImageById = async (req, res) => {
     const isCreatorOrOwner =
       photo.created_by._id.equals(req.user_id) ||
       photo.ownership.some((owner) => owner._id.equals(req.user_id));
+
+    // Increment view count only for public viewers
+    if (!isCreatorOrOwner) {
+      photo.views += 1;
+      photo.lastViewedAt = new Date();
+      await photo.save();
+    }
 
     const imageToReturn = isCreatorOrOwner
       ? photo.link
@@ -171,9 +172,43 @@ export const getImageById = async (req, res) => {
       access_image: imageToReturn,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: 'Error fetching photo', error: error.message });
+    res.status(500).json({ message: 'Error fetching photo', error: error.message });
+  }
+};
+export const getAllPhotos = async (req, res) => {
+  try {
+    const photos = await Photo.find()
+      .populate('created_by ownership')
+      .sort({ createdAt: -1 }); 
+
+    if (!photos || photos.length === 0) {
+      return res.status(200).json({ message: 'No photos found', data: [] });
+    }
+
+    const photosWithAccess = photos.map((photo) => {
+      const isCreatorOrOwner =
+        photo.created_by._id.equals(req.user_id) ||
+        photo.ownership.some((owner) => owner._id.equals(req.user_id));
+
+      const imageToReturn = isCreatorOrOwner
+        ? photo.link
+        : photo.watermarked_link;
+
+      return {
+        ...photo.toObject(),
+        access_image: imageToReturn,
+      };
+    });
+
+    res.status(200).json({
+      totalPhotos: photosWithAccess.length,
+      data: photosWithAccess,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error fetching photos',
+      error: error.message,
+    });
   }
 };
 export const searchPhotos = async (req, res) => {
@@ -238,5 +273,22 @@ export const searchPhotos = async (req, res) => {
   } catch (error) {
     console.error('Error searching photos:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+export const getTrendingPhotos = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const photos = await Photo.find()
+      .sort({ views: -1 }) 
+      .limit(limit)
+      .populate('created_by', 'name avatar'); 
+
+    res.status(200).json({
+      message: 'Trending photos fetched successfully',
+      total: photos.length,
+      results: photos,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching trending photos', error: error.message });
   }
 };

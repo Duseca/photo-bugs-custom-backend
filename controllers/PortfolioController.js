@@ -3,7 +3,6 @@ import User from "../models/User.js";
 
 export const createPortfolio = async (req, res) => {
   try {
-    console.log(req.body)
     const { media } = req.body;
     const creatorId = req.user_id; 
 

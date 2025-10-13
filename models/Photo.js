@@ -10,9 +10,12 @@ const PhotoSchema = new Schema(
     metadata: {},
     price: { type: Number, required: true },
     ownership: { type: [Schema.Types.ObjectId], ref: 'User' },
+    views: { type: Number, default: 0 },        
+    lastViewedAt: { type: Date },              
   },
   { timestamps: true }
 );
+
 
 // const PhotoBundleSchema = new Schema(
 //   {
