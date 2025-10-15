@@ -25,10 +25,11 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm ci
-    - run : |
+    - name : Create .env file
+      run: |          
         cat << 'EOF' > .env 
         ${{ secrets.PROD_ENV_FILE }} 
-        EOF  
-    - run: pm2 restart BackendAPI
-    
+        EOF
+    - run: npm ci
+    - run: npm run build --if-present
+    - run : pm2 restart BackendAPI
