@@ -8,11 +8,9 @@ import {
   getUserFeedbackSuggestions,
 } from '../controllers/FeedbackController.js';
 import verifyToken from '../middleware/auth.js';
-// import { isAdmin } from '../middleware/roles';
 
 const router = express.Router();
 
-// Protected routes
 router.get('/', verifyToken, getAllFeedback);
 router.get('/:id', verifyToken, getFeedbackById);
 router.post('/', verifyToken, createFeedback);
