@@ -31,3 +31,5 @@ jobs:
         cat << 'EOF' > .env 
         ${{ secrets.PROD_ENV_FILE }} 
         EOF  
+    - run: pm2 restart BackendAPI
+    
