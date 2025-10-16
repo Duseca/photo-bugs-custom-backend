@@ -24,7 +24,6 @@ app.get('/', (req, res) => res.send('Base server route'));
   try {
     await connectDB();
     console.log('MongoDB connected');
-
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => console.log(`Server running on ${PORT}`));
 
