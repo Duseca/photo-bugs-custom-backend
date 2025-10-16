@@ -1,34 +1,35 @@
+// server.js
 import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
 import morgan from 'morgan';
-import connectDB from './config/connectDB.js';
 import cors from 'cors';
-// import cookieParser from 'cookie-parser';
-
+import connectDB from './config/connectDB.js';
 import Routes from './routes/index.js';
 
 const app = express();
 
-connectDB();
-
+app.use(morgan('dev'));
+app.use(cors({ origin: process.env.BASE_URL || '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-// app.use(cookieParser());
-app.use(cors());
-app.use(morgan('dev'));
 
 // Routes
 app.use('/api', Routes);
+app.get('/', (req, res) => res.send('Base server route'));
 
-app.get('/', async (req, res) => {
+// Start server and DB
+(async () => {
   try {
-    res.send('Base server route');
-  } catch (error) {
-    console.log(error);
-  }
-});
+    await connectDB();
+    console.log('MongoDB connected');
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => console.log(`Server started on ${PORT}`));
+    const PORT = process.env.PORT || 5000;
+    const server = app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    process.exit(1);
+  }
+})();
