@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // Routes
 app.use('/api', Routes);
-app.get('/', (req, res) => res.send('Base server route'));
+app.get('/', (req, res) => res.send('Base hello server route'));
 
 // Start server and DB
 (async () => {
