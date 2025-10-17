@@ -8,7 +8,6 @@ import {
   markAsSeen,
 } from '../controllers/NotificationController.js';
 import verifyToken from '../middleware/auth.js';
-// import { isAdmin } from '../middleware/roles';
 
 const router = express.Router();
 

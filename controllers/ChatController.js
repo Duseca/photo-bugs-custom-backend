@@ -1,7 +1,5 @@
 import Chat from '../models/Chat.js';
 import User from '../models/User.js';
-// import Photo from '../models/Photo.js';
-// import Bundle from '../models/Bundle.js';
 
 // Helper to populate message references
 const populateMessage = (message) => {

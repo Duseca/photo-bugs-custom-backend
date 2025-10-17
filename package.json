@@ -3,14 +3,9 @@
   "version": "1.0.0",
   "main": "server.js",
   "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "start": "node server.js",
-    "start:socket": "node socket.js",
-    "dev": "concurrently \"npm:start\" \"npm:start:socket\"",
-    "dev:server": "nodemon server.js",
-    "dev:socket": "nodemon socket.js",
-    "dev:all": "concurrently \"npm:dev:server\" \"npm:dev:socket\"",
+  "license": "MIT", 
+   "scripts": {
+    "start": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
