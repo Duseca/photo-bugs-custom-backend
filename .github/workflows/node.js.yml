@@ -41,7 +41,6 @@ jobs:
             pm2 start server.js --name BackendApI
           fi
           pm2 save
-
       - name: Clean old PM2 logs
         run: |
           echo "Cleaning PM2 logs..."
