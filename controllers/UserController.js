@@ -130,6 +130,7 @@ export const loginUser = async (req, res) => {
     // Social login
     if (socialProvider && socialId) {
       user = await User.findOne({ socialId, socialProvider });
+
       if (!user) {
         return res.status(404).json({
           success: false,
