@@ -5,6 +5,7 @@ import { uploadImageWithWatermark } from '../utils/handleImages.js';
 import { memoryUpload } from '../config/multer.js';
 import { google } from "googleapis";
 import stream from "stream";
+import { getGoogleAuthClient } from '../utils/googleClient.js';
 export const getCreatorImages = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -31,92 +32,79 @@ export const getCreatorImages = async (req, res) => {
   }
 };
 export const uploadImage = async (req, res) => {
-  // try {
-  //   const user = await User.findById(req.user_id);
-  //   if (!user) return res.status(404).json({ message: "User not found" });
+  try {
+    const user = await User.findById(req.user_id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  //   memoryUpload(req, res, async (err) => {
-  //     if (err)
-  //       return res
-  //         .status(400)
-  //         .json({ message: "File upload error", error: err.message });
+    memoryUpload(req, res, async (err) => {
+      if (err)
+        return res.status(400).json({ message: "File upload error", error: err.message });
 
-  //     if (!req.file)
-  //       return res.status(400).json({ message: "No image uploaded" });
+      if (!req.file)
+        return res.status(400).json({ message: "No image uploaded" });
 
-  //     if (user.storage.used + req.file.size > user.storage.max) {
-  //       return res
-  //         .status(400)
-  //         .json({ message: "Insufficient storage space" });
-  //     }
+      if (user.storage.used + req.file.size > user.storage.max) {
+        return res.status(400).json({ message: "Insufficient storage space" });
+      }
+      try {
+        console.log(user.googleTokens?.access_token)
+        const oauth2Client = getGoogleAuthClient(user.googleTokens?.access_token); 
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-  //     try {
-  //       // Initialize OAuth client with only access token
-  //       const oauth2Client = await getGoogleAuthClient(user);
-  //       console.log("Access token being used:", oauth2Client.credentials.access_token);
-  //       const drive = google.drive({ version: "v3", auth: oauth2Client });
-       
-  //       const bufferStream = new stream.PassThrough();
-  //       bufferStream.end(req.file.buffer);
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(req.file.buffer);
 
-  //       // Upload to Google Drive
-  //       const response = await drive.files.create({
-  //         requestBody: {
-  //           name: req.file.originalname,
-  //           mimeType: req.file.mimetype,
-  //         },
-  //         media: {
-  //           mimeType: req.file.mimetype,
-  //           body: bufferStream,
-  //         },
-  //         fields: "id, webViewLink, webContentLink",
-  //       });
-  //       console.log("Google drive response", response)
-  //       const originalUrl = response.data.webContentLink;
-  //       const watermarkedUrl = response.data.webViewLink;
+        const response = await drive.files.create({
+          requestBody: {
+            name: req.file.originalname,
+            mimeType: req.file.mimetype,
+          },
+          media: {
+            mimeType: req.file.mimetype,
+            body: bufferStream,
+          },
+          fields: "id, webViewLink, webContentLink",
+        });
 
-  //       // Save photo record
-  //       const photo = new Photo({
-  //         created_by: req.user_id,
-  //         link: originalUrl,
-  //         watermarked_link: watermarkedUrl,
-  //         price: req.body.price,
-  //         size: req.file.size,
-  //         metadata: req.body.metadata || {},
-  //       });
-  //       await photo.save();
+        const originalUrl = response.data.webContentLink;
+        const webViewLink = response.data.webViewLink;
 
-  //       // Update storage usage
-  //       user.storage.used += req.file.size;
-  //       await user.save();
+        // Save photo record in DB
+        const photo = new Photo({
+          created_by: req.user_id,
+          link: originalUrl,
+          watermarked_link: webViewLink,
+          price: req.body.price,
+          size: req.file.size,
+          metadata: req.body.metadata || {},
+        });
+        await photo.save();
 
-  //       return res.status(201).json(photo);
-  //     } catch (error) {
-  //       console.error("Google Drive upload error:", error.message);
+        // Update user storage
+        user.storage.used += req.file.size;
+        await user.save();
 
-  //       // Handle expired or invalid access token
-  //       if (
-  //         error.code === 401 ||
-  //         error.message.includes("Invalid Credentials") ||
-  //         error.message.includes("Login Required")
-  //       ) {
-  //         return res.status(401).json({
-  //           message: "Google access expired. Please sign in again to continue.",
-  //         });
-  //       }
+        return res.status(201).json(photo);
+      } catch (error) {
+        console.error("Google Drive upload error:", error);
 
-  //       return res.status(500).json({
-  //         message: "Google upload failed.",
-  //         error: error.message,
-  //       });
-  //     }
-  //   });
-  // } catch (error) {
-  //   console.error("Server error:", error.message);
-  //   return res
-  //     .status(500)
-  //     .json({ message: "Server error", error: error.message });
-  // }
+        // Handle expired or invalid access token
+        if (error.code === 401 || error.message.includes("Invalid Credentials")) {
+          return res.status(401).json({
+            message: "Google access expired. Please sign in again to continue.",
+          });
+        }
+
+        return res.status(500).json({
+          message: "Google upload failed.",
+          error: error.message,
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Server error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 export const updateImage = async (req, res) => {
   try {

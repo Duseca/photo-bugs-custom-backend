@@ -42,7 +42,7 @@ export const sendVerificationEmail = async (req, res) => {
     });
   }
 };
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res) => { 
   try {
     const {
       name,
@@ -55,6 +55,7 @@ export const registerUser = async (req, res) => {
       profile_picture,
       socialProvider,
       socialId,
+      access_token, 
     } = req.body;
 
     // Social signup
@@ -71,9 +72,20 @@ export const registerUser = async (req, res) => {
           profile_picture,
           socialProvider,
           socialId,
-          isVerified: true, // auto-verified since provider handles it
+          isVerified: true, // auto-verified
+          googleTokens: access_token
+            ? { access_token, refresh_token: undefined, expiry_date: undefined }
+            : undefined,
         });
+      } else if (access_token) {
+        // If user exists but sends a new access token, update it safely
+        user.googleTokens = { 
+          ...user.googleTokens?.toObject?.(), 
+          access_token 
+        };
+        await user.save();
       }
+
       const token = jwt.sign({ user_id: user._id }, process.env.JWT_SECRET);
       const userResponse = user.toObject();
       delete userResponse.password;
@@ -104,6 +116,9 @@ export const registerUser = async (req, res) => {
       device_token,
       profile_picture,
       isVerified: true,
+      googleTokens: access_token
+        ? { access_token, refresh_token: undefined, expiry_date: undefined }
+        : undefined,
     });
 
     await Token.deleteOne({ email });
@@ -121,6 +136,8 @@ export const registerUser = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
 export const loginUser = async (req, res) => {
   try {
     const { email, password, socialProvider, socialId } = req.body;
@@ -249,6 +266,15 @@ export const updateUser = async (req, res) => {
     const updates = req.body;
     const userId = req.user_id;
 
+    console.log(updates); // for debugging
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
     if (updates.email || updates.password) {
       return res.status(400).json({
         success: false,
@@ -264,18 +290,19 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    if (
-      updates.access_token ||
-      updates.refresh_token ||
-      updates.expires_in
-    ) {
+    // Handle Google access token update
+    if (updates.accessToken || updates.expires_in) {
       currentUser.googleTokens = {
-        access_token: updates.access_token || currentUser.googleTokens?.access_token,
-        refresh_token: updates.refresh_token || currentUser.googleTokens?.refresh_token,
-        expiry_date:
-          Date.now() + ((updates.expires_in || 3600) * 1000),
+        ...currentUser.googleTokens?.toObject?.(),
+        access_token: updates.accessToken || currentUser.googleTokens?.access_token,
+        // we do not save refresh_token on update
+        expiry_date: updates.expires_in
+          ? Date.now() + updates.expires_in * 1000
+          : currentUser.googleTokens?.expiry_date,
       };
-      delete updates.access_token;
+
+      // Remove from updates to avoid merging into main object
+      delete updates.accessToken;
       delete updates.refresh_token;
       delete updates.expires_in;
     }
@@ -291,11 +318,13 @@ export const updateUser = async (req, res) => {
       }
     });
 
+    // Merge remaining updates
     Object.assign(currentUser, updates);
+
     const updatedUser = await currentUser.save();
 
     const userResponse = updatedUser.toObject();
-    delete userResponse.password;
+    delete userResponse.password; // remove password from response
 
     res.status(200).json({
       success: true,
@@ -310,6 +339,8 @@ export const updateUser = async (req, res) => {
     });
   }
 };
+
+
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
