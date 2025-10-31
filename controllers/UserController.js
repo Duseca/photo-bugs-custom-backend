@@ -55,12 +55,22 @@ export const registerUser = async (req, res) => {
       profile_picture,
       socialProvider,
       socialId,
-      access_token, 
+      access_token,
+      refresh_token,
+      expiry_date,
     } = req.body;
 
-    // Social signup
-    if (socialProvider && socialId) {
+    // ✅ Social signup
+    if (socialProvider) {
+      if (!socialId) {
+        return res.status(400).json({
+          success: false,
+          message: "socialId is required when registering via social login",
+        });
+      }
+
       let user = await User.findOne({ socialId, socialProvider });
+
       if (!user) {
         user = await User.create({
           name,
@@ -72,16 +82,22 @@ export const registerUser = async (req, res) => {
           profile_picture,
           socialProvider,
           socialId,
-          isVerified: true, // auto-verified
+          isVerified: true,
           googleTokens: access_token
-            ? { access_token, refresh_token: undefined, expiry_date: undefined }
+            ? {
+                access_token,
+                refresh_token: refresh_token || undefined,
+                expiry_date: expiry_date || undefined,
+              }
             : undefined,
         });
-      } else if (access_token) {
-        // If user exists but sends a new access token, update it safely
-        user.googleTokens = { 
-          ...user.googleTokens?.toObject?.(), 
-          access_token 
+      } else if (access_token || refresh_token || expiry_date) {
+        // ✅ Update only the provided token fields
+        user.googleTokens = {
+          ...user.googleTokens?.toObject?.(),
+          ...(access_token && { access_token }),
+          ...(refresh_token && { refresh_token }),
+          ...(expiry_date && { expiry_date }),
         };
         await user.save();
       }
@@ -93,16 +109,16 @@ export const registerUser = async (req, res) => {
       return res.status(201).json({
         success: true,
         data: { user: userResponse, token },
-        message: 'User registered via social login successfully',
+        message: "User registered via social login successfully",
       });
     }
 
-    // Normal email signup (verification token check)
+    // ✅ Normal signup (email/password)
     const tokenRecord = await Token.findOne({ email });
     if (!tokenRecord) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired verification code',
+        message: "Invalid or expired verification code",
       });
     }
 
@@ -117,7 +133,11 @@ export const registerUser = async (req, res) => {
       profile_picture,
       isVerified: true,
       googleTokens: access_token
-        ? { access_token, refresh_token: undefined, expiry_date: undefined }
+        ? {
+            access_token,
+            refresh_token: refresh_token || undefined,
+            expiry_date: expiry_date || undefined,
+          }
         : undefined,
     });
 
@@ -130,7 +150,7 @@ export const registerUser = async (req, res) => {
     res.status(201).json({
       success: true,
       data: { user: userResponse, token: jwtToken },
-      message: 'User registered successfully',
+      message: "User registered successfully",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -234,6 +254,21 @@ export const getCurrentUser = async (req, res) => {
 };
 export const getAllUsers = async (req, res) => {
   try {
+    const { userId } = req.query;
+    if (userId) {
+      const user = await User.findById(userId).select('-password');
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: user,
+      });
+    }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -339,8 +374,6 @@ export const updateUser = async (req, res) => {
     });
   }
 };
-
-
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

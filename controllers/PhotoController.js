@@ -46,14 +46,15 @@ export const uploadImage = async (req, res) => {
       if (user.storage.used + req.file.size > user.storage.max) {
         return res.status(400).json({ message: "Insufficient storage space" });
       }
+
       try {
-        console.log(user.googleTokens?.access_token)
-        const oauth2Client = getGoogleAuthClient(user.googleTokens?.access_token); 
+        const oauth2Client = getGoogleAuthClient(user.googleTokens?.access_token);
         const drive = google.drive({ version: "v3", auth: oauth2Client });
 
         const bufferStream = new stream.PassThrough();
         bufferStream.end(req.file.buffer);
 
+        // Step 1️⃣: Upload file to Drive
         const response = await drive.files.create({
           requestBody: {
             name: req.file.originalname,
@@ -66,29 +67,44 @@ export const uploadImage = async (req, res) => {
           fields: "id, webViewLink, webContentLink",
         });
 
-        const originalUrl = response.data.webContentLink;
-        const webViewLink = response.data.webViewLink;
+        const fileId = response.data.id;
 
-        // Save photo record in DB
+        // Step 2️⃣: Make the file public
+        await drive.permissions.create({
+          fileId,
+          requestBody: {
+            role: "reader",
+            type: "anyone",
+          },
+        });
+
+        // Step 3️⃣: Generate a direct public URL
+        const publicUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
+
+        // Step 4️⃣: Save photo record in DB
         const photo = new Photo({
           created_by: req.user_id,
-          link: originalUrl,
-          watermarked_link: webViewLink,
+          link: publicUrl, // direct image access
+          watermarked_link: response.data.webViewLink,
           price: req.body.price,
           size: req.file.size,
           metadata: req.body.metadata || {},
         });
+
         await photo.save();
 
-        // Update user storage
+        // Step 5️⃣: Update user storage
         user.storage.used += req.file.size;
         await user.save();
 
-        return res.status(201).json(photo);
+        return res.status(201).json({
+          success: true,
+          message: "Image uploaded and made public successfully",
+          data: photo,
+        });
       } catch (error) {
         console.error("Google Drive upload error:", error);
 
-        // Handle expired or invalid access token
         if (error.code === 401 || error.message.includes("Invalid Credentials")) {
           return res.status(401).json({
             message: "Google access expired. Please sign in again to continue.",
@@ -106,6 +122,7 @@ export const uploadImage = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 export const updateImage = async (req, res) => {
   try {
     const photo = await Photo.findOne({
