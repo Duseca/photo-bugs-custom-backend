@@ -38,17 +38,37 @@ export const uploadImage = async (req, res) => {
 
     memoryUpload(req, res, async (err) => {
       if (err)
-        return res.status(400).json({ message: "File upload error", error: err.message });
+        return res.status(400).json({
+          message: "File upload error",
+          error: err.message,
+        });
 
       if (!req.file)
         return res.status(400).json({ message: "No image uploaded" });
 
       if (user.storage.used + req.file.size > user.storage.max) {
-        return res.status(400).json({ message: "Insufficient storage space" });
+        return res
+          .status(400)
+          .json({ message: "Insufficient storage space" });
       }
 
       try {
-        const oauth2Client = getGoogleAuthClient(user.googleTokens?.access_token);
+        // ✅ Use the enhanced helper
+        const oauth2Client = getGoogleAuthClient(
+          user.googleTokens?.access_token,
+          user.googleTokens?.refresh_token
+        );
+
+        // ✅ Automatically refresh access token if expired
+        oauth2Client.on("tokens", async (tokens) => {
+          if (tokens.access_token) {
+            user.googleTokens.access_token = tokens.access_token;
+            if (tokens.expiry_date)
+              user.googleTokens.expiry_date = tokens.expiry_date;
+            await user.save();
+          }
+        });
+
         const drive = google.drive({ version: "v3", auth: oauth2Client });
 
         const bufferStream = new stream.PassThrough();
@@ -72,10 +92,7 @@ export const uploadImage = async (req, res) => {
         // Step 2️⃣: Make the file public
         await drive.permissions.create({
           fileId,
-          requestBody: {
-            role: "reader",
-            type: "anyone",
-          },
+          requestBody: { role: "reader", type: "anyone" },
         });
 
         // Step 3️⃣: Generate a direct public URL
@@ -84,7 +101,7 @@ export const uploadImage = async (req, res) => {
         // Step 4️⃣: Save photo record in DB
         const photo = new Photo({
           created_by: req.user_id,
-          link: publicUrl, // direct image access
+          link: publicUrl,
           watermarked_link: response.data.webViewLink,
           price: req.body.price,
           size: req.file.size,
@@ -93,7 +110,7 @@ export const uploadImage = async (req, res) => {
 
         await photo.save();
 
-        // Step 5️⃣: Update user storage
+        // Step 5️⃣: Update user storage usage
         user.storage.used += req.file.size;
         await user.save();
 
@@ -107,7 +124,8 @@ export const uploadImage = async (req, res) => {
 
         if (error.code === 401 || error.message.includes("Invalid Credentials")) {
           return res.status(401).json({
-            message: "Google access expired. Please sign in again to continue.",
+            message:
+              "Google access expired. Please sign in again to continue.",
           });
         }
 
@@ -119,7 +137,9 @@ export const uploadImage = async (req, res) => {
     });
   } catch (error) {
     console.error("Server error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
 

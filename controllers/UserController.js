@@ -3,6 +3,7 @@ import Token from '../models/Token.js';
 import jwt from 'jsonwebtoken';
 import sendEmail from '../utils/sendEmail.js';
 import { generateRandomCode } from '../utils/helpers.js';
+import { google } from 'googleapis';
 export const sendVerificationEmail = async (req, res) => {
   try {
     const { email } = req.body;
@@ -42,7 +43,7 @@ export const sendVerificationEmail = async (req, res) => {
     });
   }
 };
-export const registerUser = async (req, res) => { 
+export const registerUser = async (req, res) => {
   try {
     const {
       name,
@@ -58,6 +59,7 @@ export const registerUser = async (req, res) => {
       access_token,
       refresh_token,
       expiry_date,
+      serverAuthCode,
     } = req.body;
 
     // ✅ Social signup
@@ -65,13 +67,14 @@ export const registerUser = async (req, res) => {
       if (!socialId) {
         return res.status(400).json({
           success: false,
-          message: "socialId is required when registering via social login",
+          message: "socialId is required for social login",
         });
       }
 
       let user = await User.findOne({ socialId, socialProvider });
 
       if (!user) {
+        // Create new user
         user = await User.create({
           name,
           user_name,
@@ -88,16 +91,23 @@ export const registerUser = async (req, res) => {
                 access_token,
                 refresh_token: refresh_token || undefined,
                 expiry_date: expiry_date || undefined,
+                serverAuthCode: serverAuthCode || undefined,
               }
             : undefined,
         });
-      } else if (access_token || refresh_token || expiry_date) {
-        // ✅ Update only the provided token fields
+      } else if (
+        access_token ||
+        refresh_token ||
+        expiry_date ||
+        serverAuthCode
+      ) {
+        // Update only token fields if provided
         user.googleTokens = {
           ...user.googleTokens?.toObject?.(),
           ...(access_token && { access_token }),
           ...(refresh_token && { refresh_token }),
           ...(expiry_date && { expiry_date }),
+          ...(serverAuthCode && { serverAuthCode }),
         };
         await user.save();
       }
@@ -137,6 +147,7 @@ export const registerUser = async (req, res) => {
             access_token,
             refresh_token: refresh_token || undefined,
             expiry_date: expiry_date || undefined,
+            serverAuthCode: serverAuthCode || undefined,
           }
         : undefined,
     });
@@ -153,10 +164,10 @@ export const registerUser = async (req, res) => {
       message: "User registered successfully",
     });
   } catch (error) {
+    console.error("registerUser error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const loginUser = async (req, res) => {
   try {
@@ -296,12 +307,11 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
+
 export const updateUser = async (req, res) => {
   try {
     const updates = req.body;
     const userId = req.user_id;
-
-    console.log(updates); // for debugging
 
     if (!userId) {
       return res.status(400).json({
@@ -313,7 +323,7 @@ export const updateUser = async (req, res) => {
     if (updates.email || updates.password) {
       return res.status(400).json({
         success: false,
-        message: "Cannot update email or password with this endpoint",
+        message: "Cannot update email or password from this endpoint",
       });
     }
 
@@ -324,42 +334,46 @@ export const updateUser = async (req, res) => {
         message: "User not found",
       });
     }
-
-    // Handle Google access token update
-    if (updates.accessToken || updates.expires_in) {
+    if (
+      updates.accessToken ||
+      updates.refresh_token ||
+      updates.expires_in ||
+      updates.serverAuthCode
+    ) {
       currentUser.googleTokens = {
         ...currentUser.googleTokens?.toObject?.(),
-        access_token: updates.accessToken || currentUser.googleTokens?.access_token,
-        // we do not save refresh_token on update
-        expiry_date: updates.expires_in
-          ? Date.now() + updates.expires_in * 1000
-          : currentUser.googleTokens?.expiry_date,
+        ...(updates.accessToken && { access_token: updates.accessToken }),
+        ...(updates.refresh_token && { refresh_token: updates.refresh_token }),
+        ...(updates.serverAuthCode && { serverAuthCode: updates.serverAuthCode }),
+        ...(updates.expires_in && {
+          expiry_date: Date.now() + updates.expires_in * 1000,
+        }),
       };
 
-      // Remove from updates to avoid merging into main object
+      // Remove token fields from the main updates
       delete updates.accessToken;
       delete updates.refresh_token;
       delete updates.expires_in;
+      delete updates.serverAuthCode;
     }
 
-    // Handle nested objects like address, settings, location
+    // ✅ Handle nested fields (address, settings, location)
     const nestedFields = ["address", "settings", "location"];
     nestedFields.forEach((field) => {
       if (updates[field]) {
         updates[field] = {
-          ...currentUser[field]?.toObject?.() || {},
+          ...(currentUser[field]?.toObject?.() || {}),
           ...updates[field],
         };
       }
     });
 
-    // Merge remaining updates
+    // ✅ Merge remaining updates
     Object.assign(currentUser, updates);
 
     const updatedUser = await currentUser.save();
-
     const userResponse = updatedUser.toObject();
-    delete userResponse.password; // remove password from response
+    delete userResponse.password;
 
     res.status(200).json({
       success: true,
@@ -374,6 +388,7 @@ export const updateUser = async (req, res) => {
     });
   }
 };
+
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -758,4 +773,35 @@ const formatBytes = (bytes) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]);
+};
+export const generateGoogleTokens = async (req, res) => {
+  try {
+    const { serverAuthCode } = req.body;
+
+    if (!serverAuthCode) {
+      return res.status(400).json({ message: "serverAuthCode required" });
+    }
+    console.log( process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, "refresh token")
+    const oauth2Client = new google.auth.OAuth2(
+      '475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com',
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    console.log(oauth2Client)
+    const { tokens } = await oauth2Client.getToken({
+      code: '4/0Ab32j93NHtZ96uhd96FL1wQSLepGc028uFYm9QmUz_NoE6cRBQ8zfj35GdUq72l6NBRaBw',
+    });
+    console.log(tokens, "token")
+    // return res.status(200).json({
+    //   success: true,
+    //   message: "Refresh token generated successfully",
+    //   tokens,
+    // });
+  } catch (error) {
+    console.error("Error generating Google tokens:", error);
+    res.status(500).json({
+      message: "Failed to generate Google tokens",
+      error: error.message,
+    });
+  }
 };
