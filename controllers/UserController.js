@@ -776,27 +776,40 @@ const formatBytes = (bytes) => {
 };
 export const generateGoogleTokens = async (req, res) => {
   try {
-    const { serverAuthCode } = req.body;
+    const { serverAuthCode, email } = req.body; 
 
     if (!serverAuthCode) {
       return res.status(400).json({ message: "serverAuthCode required" });
     }
-    console.log( process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, "refresh token")
+
     const oauth2Client = new google.auth.OAuth2(
-      '475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com',
+      "475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com",
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
+      process.env.GOOGLE_REDIRECT_URI || "postmessage" 
     );
-    console.log(oauth2Client)
-    const { tokens } = await oauth2Client.getToken({
-      code: '4/0Ab32j93NHtZ96uhd96FL1wQSLepGc028uFYm9QmUz_NoE6cRBQ8zfj35GdUq72l6NBRaBw',
+
+    const { tokens } = await oauth2Client.getToken(serverAuthCode);
+    if (!tokens) {
+      return res.status(400).json({ message: "Failed to get Google tokens" });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.googleTokens = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date,
+      serverAuthCode,
+    };
+
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: "Google tokens generated and saved successfully",
+      tokens,
     });
-    console.log(tokens, "token")
-    // return res.status(200).json({
-    //   success: true,
-    //   message: "Refresh token generated successfully",
-    //   tokens,
-    // });
   } catch (error) {
     console.error("Error generating Google tokens:", error);
     res.status(500).json({
