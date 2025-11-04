@@ -7,8 +7,6 @@ const FolderSchema = new Schema(
     name: { type: String, required: true },
     event_id: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    photos: [{ type: Schema.Types.ObjectId, ref: 'Photo' }],
-    bundles: [{ type: Schema.Types.ObjectId, ref: 'PhotoBundle' }],
     recipients: [
       {
         email: String,

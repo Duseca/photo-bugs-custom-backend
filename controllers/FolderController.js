@@ -11,8 +11,6 @@ export const createFolder = async (req, res) => {
     const {
       name,
       event_id,
-      photo_ids = [],
-      bundle_ids = [],
       recipients = [],
     } = req.body;
 
@@ -20,14 +18,11 @@ export const createFolder = async (req, res) => {
       name,
       event_id,
       created_by: req.user_id,
-      photos: photo_ids,
-      bundles: bundle_ids,
       recipients,
-      //   cover_photo: photo_ids[0] || null
     });
 
     await folder.save();
-    res.status(201).json(await folder.populate('created_by cover_photo'));
+    res.status(201).json({message: "Folder has created successfully!", folder});
   } catch (error) {
     res
       .status(500)
@@ -35,9 +30,6 @@ export const createFolder = async (req, res) => {
   }
 };
 
-// @desc    Get all folders for an event
-// @route   GET /api/folders/event/:eventId
-// @access  Private
 export const getFoldersByEvent = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -107,8 +99,6 @@ export const getFolderById = async (req, res) => {
     const bundles = await PhotoBundle.find({
       _id: { $in: folder.bundles },
     }).populate('created_by', 'name email profile_picture');
-    //   .populate('cover_photo', 'link watermarked_link');
-
     // Apply access control to photos
     const photosWithAccess = photos.map((photo) => {
       const canViewOriginal =
