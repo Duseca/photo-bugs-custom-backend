@@ -6,6 +6,8 @@ import { memoryUpload } from '../config/multer.js';
 import { google } from "googleapis";
 import stream from "stream";
 import { getGoogleAuthClient } from '../utils/googleClient.js';
+import mongoose from 'mongoose';
+import Folder from '../models/Folder.js';
 export const getCreatorImages = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -35,31 +37,59 @@ export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
     if (!user) return res.status(404).json({ message: "User not found" });
-
     memoryUpload(req, res, async (err) => {
-      if (err)
+      if (err) {
         return res.status(400).json({
           message: "File upload error",
           error: err.message,
         });
+      }
 
-      if (!req.file)
+      if (!req.file) {
         return res.status(400).json({ message: "No image uploaded" });
+      }
 
       if (user.storage.used + req.file.size > user.storage.max) {
-        return res
-          .status(400)
-          .json({ message: "Insufficient storage space" });
+        return res.status(400).json({
+          message: "Insufficient storage space",
+        });
+      }
+      if (
+        !user.googleTokens ||
+        !user.googleTokens.access_token ||
+        !user.googleTokens.refresh_token
+      ) {
+        return res.status(401).json({
+          message: "Google tokens missing. Please reauthenticate your account.",
+        });
       }
 
       try {
-        // ✅ Use the enhanced helper
         const oauth2Client = getGoogleAuthClient(
-          user.googleTokens?.access_token,
-          user.googleTokens?.refresh_token
+          user.googleTokens.access_token,
+          user.googleTokens.refresh_token
         );
-
-        // ✅ Automatically refresh access token if expired
+        if (
+          user.googleTokens.expiry_date &&
+          Date.now() > user.googleTokens.expiry_date
+        ) {
+          console.log("Access token expired, attempting refresh...");
+          try {
+            const { credentials } = await oauth2Client.refreshAccessToken();
+            oauth2Client.setCredentials(credentials);
+            user.googleTokens.access_token = credentials.access_token;
+            if (credentials.expiry_date)
+              user.googleTokens.expiry_date = credentials.expiry_date;
+            await user.save();
+            console.log("Access token refreshed successfully");
+          } catch (refreshErr) {
+            console.error("Failed to refresh token:", refreshErr);
+            return res.status(401).json({
+              message:
+                "Google token refresh failed. Please sign in again to continue.",
+            });
+          }
+        }
         oauth2Client.on("tokens", async (tokens) => {
           if (tokens.access_token) {
             user.googleTokens.access_token = tokens.access_token;
@@ -70,11 +100,9 @@ export const uploadImage = async (req, res) => {
         });
 
         const drive = google.drive({ version: "v3", auth: oauth2Client });
-
         const bufferStream = new stream.PassThrough();
         bufferStream.end(req.file.buffer);
 
-        // Step 1️⃣: Upload file to Drive
         const response = await drive.files.create({
           requestBody: {
             name: req.file.originalname,
@@ -88,32 +116,49 @@ export const uploadImage = async (req, res) => {
         });
 
         const fileId = response.data.id;
-
-        // Step 2️⃣: Make the file public
         await drive.permissions.create({
           fileId,
           requestBody: { role: "reader", type: "anyone" },
         });
 
-        // Step 3️⃣: Generate a direct public URL
         const publicUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
+        const parsedMetadata = (() => {
+          try {
+            return req.body.metadata ? JSON.parse(req.body.metadata) : {};
+          } catch {
+            return {};
+          }
+        })();
 
-        // Step 4️⃣: Save photo record in DB
+        const folderId = req.body.folder_id?.toString().trim();
+        if (!mongoose.Types.ObjectId.isValid(folderId)) {
+          return res.status(400).json({ message: "Invalid folder_id format" });
+        }
+
+        const folderExists = await Folder.findById(folderId);
+        if (!folderExists) {
+          return res.status(404).json({ message: "Folder not found" });
+        }
+
+        const price = Number(req.body.price);
+        if (isNaN(price) || price < 0) {
+          return res.status(400).json({ message: "Invalid price value" });
+        }
+
         const photo = new Photo({
           created_by: req.user_id,
           link: publicUrl,
           watermarked_link: response.data.webViewLink,
-          price: req.body.price,
+          price,
           size: req.file.size,
-          metadata: req.body.metadata || {},
+          metadata: parsedMetadata,
+          folder_id: folderId,
         });
 
         await photo.save();
 
-        // Step 5️⃣: Update user storage usage
         user.storage.used += req.file.size;
         await user.save();
-
         return res.status(201).json({
           success: true,
           message: "Image uploaded and made public successfully",
@@ -125,7 +170,7 @@ export const uploadImage = async (req, res) => {
         if (error.code === 401 || error.message.includes("Invalid Credentials")) {
           return res.status(401).json({
             message:
-              "Google access expired. Please sign in again to continue.",
+              "Google access expired or invalid. Please sign in again to continue.",
           });
         }
 
@@ -142,7 +187,6 @@ export const uploadImage = async (req, res) => {
       .json({ message: "Server error", error: error.message });
   }
 };
-
 export const updateImage = async (req, res) => {
   try {
     const photo = await Photo.findOne({

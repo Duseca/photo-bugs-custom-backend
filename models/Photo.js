@@ -11,7 +11,8 @@ const PhotoSchema = new Schema(
     price: { type: Number, required: true },
     ownership: { type: [Schema.Types.ObjectId], ref: 'User' },
     views: { type: Number, default: 0 },        
-    lastViewedAt: { type: Date },              
+    lastViewedAt: { type: Date },    
+    folder_id: { type: Schema.Types.ObjectId, ref: 'Folder', required: true },          
   },
   { timestamps: true }
 );
