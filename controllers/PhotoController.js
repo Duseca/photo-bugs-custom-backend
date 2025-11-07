@@ -288,8 +288,15 @@ export const getImageById = async (req, res) => {
 export const getAllPhotos = async (req, res) => {
   try {
     const photos = await Photo.find()
-      .populate('created_by ownership')
-      .sort({ createdAt: -1 }); 
+  .populate({
+    path: "created_by",
+    select: "fullName email _id", 
+  })
+  .populate({
+    path: "ownership",
+    select: "name type _id", 
+  })
+  .sort({ createdAt: -1 });
 
     if (!photos || photos.length === 0) {
       return res.status(200).json({ message: 'No photos found', data: [] });
