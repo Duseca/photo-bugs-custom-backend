@@ -37,6 +37,7 @@ export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
     memoryUpload(req, res, async (err) => {
       if (err) {
         return res.status(400).json({
@@ -48,7 +49,6 @@ export const uploadImage = async (req, res) => {
       if (!req.file) {
         return res.status(400).json({ message: "No image uploaded" });
       }
-
       if (user.storage.used + req.file.size > user.storage.max) {
         return res.status(400).json({
           message: "Insufficient storage space",
@@ -73,7 +73,7 @@ export const uploadImage = async (req, res) => {
           user.googleTokens.expiry_date &&
           Date.now() > user.googleTokens.expiry_date
         ) {
-          console.log("Access token expired, attempting refresh...");
+          console.log("Access token expired. Attempting refresh...");
           try {
             const { credentials } = await oauth2Client.refreshAccessToken();
             oauth2Client.setCredentials(credentials);
@@ -83,13 +83,14 @@ export const uploadImage = async (req, res) => {
             await user.save();
             console.log("Access token refreshed successfully");
           } catch (refreshErr) {
-            console.error("Failed to refresh token:", refreshErr);
+            console.error("Token refresh failed:", refreshErr);
             return res.status(401).json({
               message:
                 "Google token refresh failed. Please sign in again to continue.",
             });
           }
         }
+
         oauth2Client.on("tokens", async (tokens) => {
           if (tokens.access_token) {
             user.googleTokens.access_token = tokens.access_token;
@@ -100,10 +101,12 @@ export const uploadImage = async (req, res) => {
         });
 
         const drive = google.drive({ version: "v3", auth: oauth2Client });
+
         const bufferStream = new stream.PassThrough();
         bufferStream.end(req.file.buffer);
 
-        const response = await drive.files.create({
+        // Upload file to Drive
+        const driveResponse = await drive.files.create({
           requestBody: {
             name: req.file.originalname,
             mimeType: req.file.mimetype,
@@ -115,13 +118,17 @@ export const uploadImage = async (req, res) => {
           fields: "id, webViewLink, webContentLink",
         });
 
-        const fileId = response.data.id;
+        const fileId = driveResponse.data.id;
+
+        // Make file public
         await drive.permissions.create({
           fileId,
           requestBody: { role: "reader", type: "anyone" },
         });
 
         const publicUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
+
+        // Parse metadata safely
         const parsedMetadata = (() => {
           try {
             return req.body.metadata ? JSON.parse(req.body.metadata) : {};
@@ -130,7 +137,11 @@ export const uploadImage = async (req, res) => {
           }
         })();
 
+        // Validate folder ID
         const folderId = req.body.folder_id?.toString().trim();
+        if (!folderId) {
+          return res.status(400).json({ message: "folder_id is required" });
+        }
         if (!mongoose.Types.ObjectId.isValid(folderId)) {
           return res.status(400).json({ message: "Invalid folder_id format" });
         }
@@ -140,15 +151,20 @@ export const uploadImage = async (req, res) => {
           return res.status(404).json({ message: "Folder not found" });
         }
 
+          if (req.body.price === undefined || req.body.price === "") {
+          return res.status(400).json({ message: "Price is required" });
+        }
+
         const price = Number(req.body.price);
         if (isNaN(price) || price < 0) {
           return res.status(400).json({ message: "Invalid price value" });
         }
 
+        // Save photo to DB
         const photo = new Photo({
           created_by: req.user_id,
           link: publicUrl,
-          watermarked_link: response.data.webViewLink,
+          watermarked_link: driveResponse.data.webViewLink,
           price,
           size: req.file.size,
           metadata: parsedMetadata,
@@ -157,8 +173,10 @@ export const uploadImage = async (req, res) => {
 
         await photo.save();
 
+        // Update user's used storage
         user.storage.used += req.file.size;
         await user.save();
+
         return res.status(201).json({
           success: true,
           message: "Image uploaded and made public successfully",
