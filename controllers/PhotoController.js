@@ -36,6 +36,7 @@ export const getCreatorImages = async (req, res) => {
 export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
+    console.log(user, "photobysg")
     if (!user) return res.status(404).json({ message: "User not found" });
 
     memoryUpload(req, res, async (err) => {

@@ -74,7 +74,6 @@ export const registerUser = async (req, res) => {
       let user = await User.findOne({ socialId, socialProvider });
 
       if (!user) {
-        // Create new user
         user = await User.create({
           name,
           user_name,
@@ -101,7 +100,6 @@ export const registerUser = async (req, res) => {
         expiry_date ||
         serverAuthCode
       ) {
-        // Update only token fields if provided
         user.googleTokens = {
           ...user.googleTokens?.toObject?.(),
           ...(access_token && { access_token }),
@@ -785,7 +783,7 @@ export const generateGoogleTokens = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       "475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com",
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || "postmessage" 
+      process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000" 
     );
 
     const { tokens } = await oauth2Client.getToken(serverAuthCode);
@@ -803,7 +801,7 @@ export const generateGoogleTokens = async (req, res) => {
       expiry_date: tokens.expiry_date,
       serverAuthCode,
     };
-
+     
     await user.save();
     return res.status(200).json({
       success: true,
