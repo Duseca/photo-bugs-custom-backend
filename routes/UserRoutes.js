@@ -22,7 +22,7 @@ import verifyToken from '../middleware/auth.js';
 const router = express.Router();
 // Public routes
 
-router.post('/generate-tokens', verifyToken, generateGoogleTokens);
+router.post('/get-token', verifyToken, generateGoogleTokens);
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify-email', verifyEmail);
