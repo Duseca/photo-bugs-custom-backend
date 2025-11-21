@@ -36,7 +36,5 @@ router.post('/favorites/:userId', verifyToken, addFavourite);
 router.delete('/favorites/:userId', verifyToken, removeFavourite);
 router.get('/search-creator',verifyToken, searchCreators);
 router.post('/generate-tokens', verifyToken, generateGoogleTokens);
-// router.post('/stripe/onboard', verifyToken, startStripeOnboarding);
-// router.get('/stripe/account-status', verifyToken, checkStripeAccountStatus);
 
 export default router;
