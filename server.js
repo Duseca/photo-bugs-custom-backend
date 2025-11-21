@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: false }));
 // Routes
 app.use('/api', Routes);
 app.get('/', (req, res) => res.send('Base server route'));
-app.get('/test', (req, res) => res.send('test basic main route'));
+app.get('/test', (req, res) => res.send('test basic token removed main route'));
 
 (async () => {
   try {
