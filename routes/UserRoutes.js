@@ -21,6 +21,8 @@ import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
 // Public routes
+
+router.post('/generate-tokens', verifyToken, generateGoogleTokens);
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify-email', verifyEmail);
@@ -35,6 +37,5 @@ router.post('/purchase-storage', verifyToken, purchaseStorage);
 router.post('/favorites/:userId', verifyToken, addFavourite);
 router.delete('/favorites/:userId', verifyToken, removeFavourite);
 router.get('/search-creator',verifyToken, searchCreators);
-router.post('/generate-tokens', verifyToken, generateGoogleTokens);
 
 export default router;
