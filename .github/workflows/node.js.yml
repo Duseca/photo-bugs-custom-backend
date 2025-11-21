@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: self-hosted
 
     strategy:
@@ -16,32 +16,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install dependencies safely
+      - name: Install dependencies
         run: |
-          echo "Installing dependencies..."
           npm install --no-audit --no-fund
 
-      - name: Update environment variables
+      - name: Update .env file
         run: |
-          echo "Updating .env file..."
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-      - name: Restart PM2 process
-        run: |
-          echo "Restarting PM2 app..."
-          if pm2 list | grep -q BackendApI; then
-            pm2 restart BackendApI
-          else
-            pm2 start server.js --name BackendApI
-          fi
-          pm2 save
-      - name: Clean old PM2 logs
-        run: |
-          echo "Cleaning PM2 logs..."
-          pm2 flush
+      - name: Deploy code to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # Navigate to app folder
+            cd /home/ubuntu/photo-bugs-custom-backend
+            
+            # Sync code from Actions runner (optional: if using rsync)
+            rsync -av --exclude node_modules ./ /home/ubuntu/photo-bugs-custom-backend/
+            
+            # Install dependencies on EC2
+            npm install --production --no-audit --no-fund
+            
+            # Update environment file
+            echo "${{ secrets.PROD_ENV_FILE }}" > .env
+
+            # Restart PM2 process
+            if pm2 list | grep -q BackendApI; then
+              pm2 restart BackendApI
+            else
+              pm2 start server.js --name BackendApI
+            fi
+            pm2 save
+            pm2 flush
