@@ -62,7 +62,6 @@ export const registerUser = async (req, res) => {
       serverAuthCode,
     } = req.body;
 
-    // ✅ Social signup
     if (socialProvider) {
       if (!socialId) {
         return res.status(400).json({
@@ -783,7 +782,7 @@ export const generateGoogleTokens = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       "475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com",
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000" 
+      "https://developers.google.com/oauthplayground" || "http://localhost:5000" 
     );
 
     const { tokens } = await oauth2Client.getToken(serverAuthCode);
