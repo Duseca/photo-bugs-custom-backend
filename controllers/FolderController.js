@@ -121,6 +121,58 @@ export const getFolderById = async (req, res) => {
       .json({ message: 'Error fetching folder', error: error.message });
   }
 };
+export const getAllFolders = async (req, res) => {
+  try {
+    // 1. Get ALL folders
+    const folders = await Folder.find()
+      .populate("created_by", "name email profile_picture");
+
+    if (!folders || folders.length === 0) {
+      return res.status(404).json({ message: "No folders found" });
+    }
+
+    // 2. Build final array
+    const finalFolders = [];
+
+    for (const folder of folders) {
+      // ---- PHOTOS ----
+      const photos = await Photo.find({ _id: { $in: folder.photos } })
+        .populate("created_by", "name email profile_picture");
+
+      // Apply access control
+      const photosWithAccess = photos.map(photo => {
+        const canViewOriginal =
+          photo.created_by._id.equals(req.user_id) ||
+          photo.ownership.includes(req.user_id);
+
+        return {
+          ...photo.toObject(),
+          access_image: canViewOriginal ? photo.link : photo.watermarked_link
+        };
+      });
+
+      // ---- BUNDLES ----
+      const bundles = await PhotoBundle.find({
+        _id: { $in: folder.bundles }
+      }).populate("created_by", "name email profile_picture");
+
+      // Push merged result
+      finalFolders.push({
+        ...folder.toObject(),
+        photos: photosWithAccess,
+        bundles
+      });
+    }
+
+    res.json(finalFolders);
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching folders",
+      error: error.message
+    });
+  }
+};
+
 
 // @desc    Accept folder invitation
 // @route   PUT /api/folders/:id/accept
