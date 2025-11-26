@@ -1,35 +1,86 @@
+import { google } from 'googleapis';
 import Folder from '../models/Folder.js';
 import Photo from '../models/Photo.js';
 import PhotoBundle from '../models/PhotoBundle.js';
 import User from '../models/User.js';
-
-// @desc    Create a new folder
-// @route   POST /api/folders
-// @access  Private
+import { getGoogleAuthClient } from '../utils/googleClient.js';
+import Event from '../models/Event.js';
 export const createFolder = async (req, res) => {
   try {
-    const {
-      name,
-      event_id,
-      recipients = [],
-    } = req.body;
+    const { name, event_id, recipients = [] } = req.body;
 
+    const user = await User.findById(req.user_id);
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
+
+    if (
+      !user.googleTokens?.access_token ||
+      !user.googleTokens?.refresh_token
+    ) {
+      return res.status(401).json({
+        message: "Google authentication missing. Please reauthenticate.",
+      });
+    }
+    const oauth2Client = getGoogleAuthClient(
+      user.googleTokens.access_token,
+      user.googleTokens.refresh_token
+    );
+
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const event = await Event.findById(event_id);
+    if (!event)
+      return res.status(404).json({ message: "Event not found" });
+
+    const eventName = event.title || event.name || "Event";
+    let eventFolderId = event.drive_folder_id;
+
+    if (!eventFolderId) {
+    
+      const eventFolder = await drive.files.create({
+        requestBody: {
+          name: eventName,
+          mimeType: "application/vnd.google-apps.folder",
+        },
+        fields: "id",
+      });
+
+      eventFolderId = eventFolder.data.id;
+      event.drive_folder_id = eventFolderId;
+      await event.save();
+    }
+    const folderCreate = await drive.files.create({
+      requestBody: {
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [eventFolderId],
+      },
+      fields: "id",
+    });
+
+    const subFolderId = folderCreate.data.id;
     const folder = new Folder({
       name,
       event_id,
       created_by: req.user_id,
       recipients,
+      drive_folder_id: subFolderId,
+      event_drive_folder_id: eventFolderId,
     });
 
     await folder.save();
-    res.status(201).json({message: "Folder has created successfully!", folder});
+
+    return res.status(201).json({
+      message: "Folder created successfully",
+      folder,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: 'Error creating folder', error: error.message });
+    console.error("Create folder error:", error);
+    return res.status(500).json({
+      message: "Error creating folder",
+      error: error.message,
+    });
   }
 };
-
 export const getFoldersByEvent = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -68,10 +119,6 @@ export const getFoldersByEvent = async (req, res) => {
       .json({ message: 'Error fetching folders', error: error.message });
   }
 };
-
-// @desc    Get folder by ID with populated content
-// @route   GET /api/folders/:id
-// @access  Private
 export const getFolderById = async (req, res) => {
   try {
     const folder = await Folder.findOne({
@@ -172,11 +219,6 @@ export const getAllFolders = async (req, res) => {
     });
   }
 };
-
-
-// @desc    Accept folder invitation
-// @route   PUT /api/folders/:id/accept
-// @access  Private
 export const acceptInvite = async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.id);
@@ -216,10 +258,6 @@ export const acceptInvite = async (req, res) => {
       .json({ message: 'Error accepting invitation', error: error.message });
   }
 };
-
-// @desc    Decline folder invitation
-// @route   PUT /api/folders/:id/decline
-// @access  Private
 export const declineInvite = async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.id);

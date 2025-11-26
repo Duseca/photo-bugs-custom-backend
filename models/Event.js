@@ -6,7 +6,7 @@ const EventSchema = new mongoose.Schema(
     photographer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
     image: { type: String, required: true },
-
+    drive_folder_id:{type:String, default:''},
     // ✅ Correct geospatial location field
     location: {
       type: {

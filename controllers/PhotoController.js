@@ -36,32 +36,27 @@ export const getCreatorImages = async (req, res) => {
 export const uploadImage = async (req, res) => {
   try {
     const user = await User.findById(req.user_id);
-    console.log(user, "photobysg")
     if (!user) return res.status(404).json({ message: "User not found" });
 
     memoryUpload(req, res, async (err) => {
       if (err) {
-        return res.status(400).json({
-          message: "File upload error",
-          error: err.message,
-        });
+        return res.status(400).json({ message: "File upload error", error: err.message });
       }
 
       if (!req.file) {
         return res.status(400).json({ message: "No image uploaded" });
       }
+
       if (user.storage.used + req.file.size > user.storage.max) {
-        return res.status(400).json({
-          message: "Insufficient storage space",
-        });
+        return res.status(400).json({ message: "Insufficient storage space" });
       }
+
       if (
-        !user.googleTokens ||
-        !user.googleTokens.access_token ||
-        !user.googleTokens.refresh_token
+        !user.googleTokens?.access_token ||
+        !user.googleTokens?.refresh_token
       ) {
         return res.status(401).json({
-          message: "Google tokens missing. Please reauthenticate your account.",
+          message: "Google tokens missing. Please reauthenticate.",
         });
       }
 
@@ -70,47 +65,50 @@ export const uploadImage = async (req, res) => {
           user.googleTokens.access_token,
           user.googleTokens.refresh_token
         );
-        if (
-          user.googleTokens.expiry_date &&
-          Date.now() > user.googleTokens.expiry_date
-        ) {
-          console.log("Access token expired. Attempting refresh...");
-          try {
-            const { credentials } = await oauth2Client.refreshAccessToken();
-            oauth2Client.setCredentials(credentials);
-            user.googleTokens.access_token = credentials.access_token;
-            if (credentials.expiry_date)
-              user.googleTokens.expiry_date = credentials.expiry_date;
-            await user.save();
-            console.log("Access token refreshed successfully");
-          } catch (refreshErr) {
-            console.error("Token refresh failed:", refreshErr);
-            return res.status(401).json({
-              message:
-                "Google token refresh failed. Please sign in again to continue.",
-            });
-          }
-        }
-
-        oauth2Client.on("tokens", async (tokens) => {
-          if (tokens.access_token) {
-            user.googleTokens.access_token = tokens.access_token;
-            if (tokens.expiry_date)
-              user.googleTokens.expiry_date = tokens.expiry_date;
-            await user.save();
-          }
-        });
 
         const drive = google.drive({ version: "v3", auth: oauth2Client });
 
+        // Parse metadata
+        const parsedMetadata = (() => {
+          try {
+            return req.body.metadata ? JSON.parse(req.body.metadata) : {};
+          } catch {
+            return {};
+          }
+        })();
+
+        const folderId = req.body.folder_id?.toString().trim();
+        if (!folderId)
+          return res.status(400).json({ message: "folder_id is required" });
+
+        if (!mongoose.Types.ObjectId.isValid(folderId))
+          return res.status(400).json({ message: "Invalid folder_id" });
+
+        const folder = await Folder.findById(folderId);
+        if (!folder)
+          return res.status(404).json({ message: "Folder not found" });
+
+        if (!folder.drive_folder_id) {
+          return res.status(400).json({
+            message: "This folder is not linked with Google Drive.",
+          });
+        }
+         const driveFolderId = folder.drive_folder_id;
+        if (req.body.price === undefined || req.body.price === "") {
+          return res.status(400).json({ message: "Price is required" });
+        }
+
+        const price = Number(req.body.price);
+        if (isNaN(price) || price < 0)
+          return res.status(400).json({ message: "Invalid price" });
         const bufferStream = new stream.PassThrough();
         bufferStream.end(req.file.buffer);
 
-        // Upload file to Drive
-        const driveResponse = await drive.files.create({
+        const driveUpload = await drive.files.create({
           requestBody: {
             name: req.file.originalname,
             mimeType: req.file.mimetype,
+            parents: [driveFolderId], 
           },
           media: {
             mimeType: req.file.mimetype,
@@ -119,7 +117,7 @@ export const uploadImage = async (req, res) => {
           fields: "id, webViewLink, webContentLink",
         });
 
-        const fileId = driveResponse.data.id;
+        const fileId = driveUpload.data.id;
 
         // Make file public
         await drive.permissions.create({
@@ -129,43 +127,11 @@ export const uploadImage = async (req, res) => {
 
         const publicUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
 
-        // Parse metadata safely
-        const parsedMetadata = (() => {
-          try {
-            return req.body.metadata ? JSON.parse(req.body.metadata) : {};
-          } catch {
-            return {};
-          }
-        })();
-
-        // Validate folder ID
-        const folderId = req.body.folder_id?.toString().trim();
-        if (!folderId) {
-          return res.status(400).json({ message: "folder_id is required" });
-        }
-        if (!mongoose.Types.ObjectId.isValid(folderId)) {
-          return res.status(400).json({ message: "Invalid folder_id format" });
-        }
-
-        const folderExists = await Folder.findById(folderId);
-        if (!folderExists) {
-          return res.status(404).json({ message: "Folder not found" });
-        }
-
-          if (req.body.price === undefined || req.body.price === "") {
-          return res.status(400).json({ message: "Price is required" });
-        }
-
-        const price = Number(req.body.price);
-        if (isNaN(price) || price < 0) {
-          return res.status(400).json({ message: "Invalid price value" });
-        }
-
         // Save photo to DB
         const photo = new Photo({
           created_by: req.user_id,
           link: publicUrl,
-          watermarked_link: driveResponse.data.webViewLink,
+          watermarked_link: driveUpload.data.webViewLink,
           price,
           size: req.file.size,
           metadata: parsedMetadata,
@@ -174,36 +140,25 @@ export const uploadImage = async (req, res) => {
 
         await photo.save();
 
-        // Update user's used storage
+        // Update storage used
         user.storage.used += req.file.size;
         await user.save();
 
         return res.status(201).json({
           success: true,
-          message: "Image uploaded and made public successfully",
+          message: "Image uploaded to folder successfully",
           data: photo,
         });
       } catch (error) {
         console.error("Google Drive upload error:", error);
-
-        if (error.code === 401 || error.message.includes("Invalid Credentials")) {
-          return res.status(401).json({
-            message:
-              "Google access expired or invalid. Please sign in again to continue.",
-          });
-        }
-
         return res.status(500).json({
-          message: "Google upload failed.",
+          message: "Google upload failed",
           error: error.message,
         });
       }
     });
   } catch (error) {
-    console.error("Server error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: error.message });
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 export const updateImage = async (req, res) => {

@@ -7,6 +7,8 @@ const FolderSchema = new Schema(
     name: { type: String, required: true },
     event_id: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    drive_folder_id:{type:String, default:''},
+    event_drive_folder_id:{type:String, default:''},
     recipients: [
       {
         email: String,

@@ -783,8 +783,9 @@ export const generateGoogleTokens = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       "475571616343-2kfdvc5eqknjs0p9s8pf9dbgrmpu3s1q.apps.googleusercontent.com",
       process.env.GOOGLE_CLIENT_SECRET,
-      "https://photosbybugs.com"
+      "https://developers.google.com/oauthplayground"
     );
+    //https://developers.google.com/oauthplayground , https://photosbybugs.com
     const { tokens } = await oauth2Client.getToken(serverAuthCode);
     if (!tokens) {
       return res.status(400).json({ message: "Failed to get Google tokens" });
